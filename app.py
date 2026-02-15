@@ -90,11 +90,7 @@ st.caption(
 # =====================================================
 st.sidebar.header(
     "📌 Market Selection",
-    help=(
-        "Select the index and stock you want to analyze. "
-        "All charts, prices, indicators, and signals update automatically "
-        "based on this selection."
-    )
+    help="Select index and stock. All data updates automatically."
 )
 
 index = st.sidebar.selectbox("Select Index", INDEX_MAP.keys())
@@ -106,31 +102,26 @@ stock = st.sidebar.selectbox("Select Stock", INDEX_MAP[index])
 # =====================================================
 st.sidebar.header(
     "🛡 Risk Limits",
-    help=(
-        "Personal daily risk controls. These limits help enforce discipline "
-        "by blocking trades after excessive activity or losses."
-    )
+    help="Daily risk controls to enforce discipline."
 )
 
 max_trades = st.sidebar.number_input(
-    "Max Trades / Day",
-    1, 10, 3,
-    help="Maximum number of intraday trades allowed for the day."
+    "Max Trades / Day", 1, 10, 3,
+    help="Maximum intraday trades allowed."
 )
 
 max_loss = st.sidebar.number_input(
-    "Max Loss / Day (₹)",
-    1000, 50000, 5000,
-    help="Maximum acceptable loss for the day. Trading is blocked if breached."
+    "Max Loss / Day (₹)", 1000, 50000, 5000,
+    help="Trading stops once this loss is breached."
 )
 
 
 # =====================================================
-# SIDEBAR – STRATEGY MODE (NEW)
+# SIDEBAR – STRATEGY MODE
 # =====================================================
 st.sidebar.header(
     "🧠 Strategy Mode",
-    help="Choose the strategy lens you want to use while reading the chart."
+    help="Choose the strategy lens for interpretation."
 )
 
 strategy = st.sidebar.radio(
@@ -142,26 +133,17 @@ if strategy == "ORB Breakout":
     st.sidebar.info(
         "📈 **ORB Breakout Strategy**\n\n"
         "• First 15 minutes define range\n"
-        "• Trade break above ORB High or below ORB Low\n"
-        "• Best on trending days\n"
-        "• Needs volume + VWAP confirmation"
+        "• Trade break of ORB High / Low\n"
+        "• Works best on trending days\n"
+        "• Confirm with volume & VWAP"
     )
 else:
     st.sidebar.info(
         "📉 **VWAP Mean Reversion Strategy**\n\n"
-        "• VWAP is institutional fair price\n"
-        "• Trade pullbacks & rejections near VWAP\n"
-        "• Best on sideways / balanced days"
+        "• VWAP = institutional fair price\n"
+        "• Trade pullbacks & rejections\n"
+        "• Best on balanced / sideways days"
     )
-
-
-# =====================================================
-# AUTO REFRESH
-# =====================================================
-now_ts = time.time()
-if now_ts - st.session_state.last_refresh >= LIVE_REFRESH:
-    st.session_state.last_refresh = now_ts
-    st.experimental_rerun()
 
 
 # =====================================================
@@ -169,33 +151,17 @@ if now_ts - st.session_state.last_refresh >= LIVE_REFRESH:
 # =====================================================
 st.subheader(
     "🕒 Market Status",
-    help=(
-        "Displays whether the Indian stock market (NSE) is currently open. "
-        "Intraday analysis and signals are meaningful only during market hours."
-    )
+    help="Shows NSE market state and timing."
 )
 
 open_now, next_open = market_status()
 c1, c2, c3 = st.columns(3)
 
-c1.metric(
-    "🇮🇳 IST Time",
-    now_ist().strftime("%d %b %Y, %H:%M:%S"),
-    help="Current Indian Standard Time."
-)
-
-c2.metric(
-    "Market Status",
-    "🟢 OPEN" if open_now else "🔴 CLOSED",
-    help="Shows whether NSE trading session is active."
-)
+c1.metric("🇮🇳 IST Time", now_ist().strftime("%d %b %Y, %H:%M:%S"))
+c2.metric("Market Status", "🟢 OPEN" if open_now else "🔴 CLOSED")
 
 if not open_now and next_open:
-    c3.metric(
-        "Next Market Open",
-        next_open.strftime("%d %b %Y %H:%M IST"),
-        help="Next scheduled market opening time."
-    )
+    c3.metric("Next Market Open", next_open.strftime("%d %b %Y %H:%M IST"))
     st.info(f"⏳ Countdown: {countdown(next_open)}")
 
 st.divider()
@@ -204,10 +170,7 @@ st.divider()
 # =====================================================
 # LIVE PRICE
 # =====================================================
-st.subheader(
-    "📡 Live Price",
-    help="Latest traded price (LTP) of the selected stock."
-)
+st.subheader("📡 Live Price", help="Latest traded price (LTP).")
 
 price, src = live_price(stock)
 if price:
@@ -224,14 +187,7 @@ st.divider()
 # =====================================================
 st.subheader(
     "📊 Intraday Chart (3-Minute)",
-    help=(
-        "3-minute candlestick chart with:\n"
-        "• VWAP\n"
-        "• ORB High / Low\n"
-        "• ORB breakout arrows\n"
-        "• Volume bars\n\n"
-        "Used for intraday structure and momentum analysis."
-    )
+    help="3-minute candles with VWAP, ORB, volume, and breakout markers."
 )
 
 df = get_intraday_data(stock)
@@ -243,69 +199,38 @@ if df is not None and not df.empty:
 else:
     st.info("Intraday data available only during market hours.")
 
+
 # =====================================================
-# WHY THIS SIGNAL? (NEW)
+# WHY THIS SIGNAL?
 # =====================================================
 if strategy == "ORB Breakout":
     with st.expander("❓ Why this ORB signal?"):
         st.markdown("""
-**ORB signals are shown because:**
-
-• First 15 minutes define early institutional bias  
-• Break beyond ORB High / Low signals momentum  
-• Best suited for trending market conditions  
-
-**Before taking a trade, confirm:**
-• Volume expansion  
-• Price position relative to VWAP  
-• Index alignment  
+• First 15 minutes define institutional bias  
+• Break beyond ORB shows momentum  
+• Works best with volume confirmation  
 """)
-
-elif strategy == "VWAP Mean Reversion":
+else:
     with st.expander("❓ Why VWAP matters here?"):
         st.markdown("""
-**VWAP acts as institutional fair value:**
-
-• Price above VWAP → bullish bias  
-• Price below VWAP → bearish bias  
-• Reversion trades work when price stretches too far  
-
-**Before trading VWAP, check:**
-• Distance from VWAP  
-• Slowing momentum  
-• Market balance  
+• VWAP is institutional fair value  
+• Mean reversion works near VWAP  
+• Avoid chasing extended moves  
 """)
 
 st.divider()
 
 
 # =====================================================
-# EDUCATIONAL OVERLAY (NEW)
+# EDUCATIONAL OVERLAY
 # =====================================================
 with st.expander("🎓 Beginner Help: How to Read This Dashboard"):
     st.markdown("""
-**Candlesticks**
-• Show Open, High, Low, Close  
-• Long candles = strong momentum  
-
-**VWAP**
-• Institutional average price  
-• Above VWAP → bullish bias  
-• Below VWAP → bearish bias  
-
-**ORB**
-• First 15 minutes define direction  
-• Breakout = momentum  
-• Rejection = fake move  
-
-**Volume**
-• Expansion confirms moves  
-• Low volume = weak signal  
-
-**Golden Rules**
-• Never trade blindly  
-• Respect daily risk limits  
-• Fewer trades = better discipline  
+• Candlesticks show price momentum  
+• VWAP defines bias  
+• ORB shows early direction  
+• Volume confirms moves  
+• Discipline > frequency  
 """)
 
 st.divider()
@@ -314,13 +239,8 @@ st.divider()
 # =====================================================
 # DAILY WATCHLIST
 # =====================================================
-st.subheader(
-    "🎯 Daily Watchlist",
-    help=(
-        "Automatically generated list of liquid stocks for the day. "
-        "Helps reduce over-trading and keeps focus on high-quality names."
-    )
-)
+st.subheader("🎯 Daily Watchlist", help="Auto-generated focus list for the day.")
+
 today = now_ist().date()
 watchlist = daily_watchlist(INDEX_MAP[index], today)
 
@@ -338,17 +258,11 @@ st.divider()
 
 
 # =====================================================
-# SUPPORT / RESISTANCE
+# SUPPORT & RESISTANCE + LIVE CONTEXT
 # =====================================================
 st.subheader(
     "📌 Live Support & Resistance",
-    help=(
-        "Dynamic intraday price levels calculated from the current price.\n\n"
-        "• Support → potential buying zone\n"
-        "• Resistance → potential selling zone\n"
-        "• ORB High / Low → opening range boundaries\n\n"
-        "Used for trade location and risk management."
-    )
+    help="Key intraday levels used for trade location."
 )
 
 if price:
@@ -362,21 +276,33 @@ c2.metric("Resistance", levels.get("resistance", "—"))
 c3.metric("ORB High", levels.get("orb_high", "—"))
 c4.metric("ORB Low", levels.get("orb_low", "—"))
 
+# ---- Live Context (single, clean) ----
+context_msgs = []
+
+if price and levels and all(k in levels for k in ("support", "resistance", "orb_high", "orb_low")):
+    if abs(price - levels["resistance"]) / price < 0.003:
+        context_msgs.append("⚠️ Price near resistance — breakout or rejection zone.")
+    if abs(price - levels["support"]) / price < 0.003:
+        context_msgs.append("🟢 Price near support — potential demand zone.")
+    if price > levels["orb_high"]:
+        context_msgs.append("📈 Above ORB High — bullish momentum.")
+    if price < levels["orb_low"]:
+        context_msgs.append("📉 Below ORB Low — bearish momentum.")
+
+if not context_msgs:
+    context_msgs.append("ℹ️ Price is between key intraday levels.")
+
+with st.expander("ℹ️ Live Level Context (Auto-updating)"):
+    for msg in context_msgs:
+        st.markdown(f"- {msg}")
+
 st.divider()
 
 
 # =====================================================
 # OPTIONS SENTIMENT
 # =====================================================
-st.subheader(
-    "🧾 Options Chain (PCR)",
-    help=(
-        "Put–Call Ratio (PCR) reflects options market sentiment.\n\n"
-        "• Higher PCR → bullish bias\n"
-        "• Lower PCR → bearish bias\n\n"
-        "Used as a background sentiment filter, not a standalone signal."
-    )
-)
+st.subheader("🧾 Options Chain (PCR)", help="Options sentiment indicator.")
 
 pcr = get_pcr()
 st.metric("Put–Call Ratio", pcr)
@@ -387,18 +313,7 @@ st.divider()
 # =====================================================
 # TRADE DECISION
 # =====================================================
-st.subheader(
-    "📈 Trade Decision Engine",
-    help=(
-        "Final rule-based system that determines whether a trade is allowed.\n\n"
-        "Checks:\n"
-        "• Market open status\n"
-        "• Daily risk limits\n"
-        "• Options sentiment (PCR)\n"
-        "• Price vs resistance\n\n"
-        "Prevents emotional and rule-breaking trades."
-    )
-)
+st.subheader("📈 Trade Decision Engine", help="Final rule-based trade gate.")
 
 risk_status = risk_ok(
     st.session_state.trades,
@@ -416,11 +331,9 @@ allowed, reason = trade_decision(
 )
 
 if allowed:
-    st.markdown("<div class='trade-allowed'>✅ TRADE ALLOWED</div>",
-                unsafe_allow_html=True)
+    st.markdown("<div class='trade-allowed'>✅ TRADE ALLOWED</div>", unsafe_allow_html=True)
 else:
-    st.markdown(f"<div class='trade-blocked'>🚫 TRADE BLOCKED<br>{reason}</div>",
-                unsafe_allow_html=True)
+    st.markdown(f"<div class='trade-blocked'>🚫 TRADE BLOCKED<br>{reason}</div>", unsafe_allow_html=True)
 
 st.divider()
 
@@ -428,13 +341,7 @@ st.divider()
 # =====================================================
 # TRADE HISTORY
 # =====================================================
-st.subheader(
-    "📒 Trade History & PnL",
-    help=(
-        "Tracks simulated intraday trades and cumulative profit or loss.\n\n"
-        "Used for self-review, discipline, and performance improvement."
-    )
-)
+st.subheader("📒 Trade History & PnL", help="Session performance tracking.")
 
 st.metric("PnL Today (₹)", round(st.session_state.pnl, 2))
 
@@ -443,25 +350,26 @@ if st.session_state.history:
 else:
     st.info("No trades recorded yet")
 
-st.divider()
-
 
 # =====================================================
 # HOW TO USE
 # =====================================================
-st.subheader(
-    "📘 How to Use This Dashboard",
-    help=(
-        "Recommended professional workflow for using this dashboard "
-        "in a disciplined intraday trading process."
-    )
-)
+st.subheader("📘 How to Use This Dashboard")
 
 with st.expander("Click to read"):
     st.markdown("""
-• Pre-market → Mark bias & levels  
-• First 15 min → Observe ORB  
-• Trade only after confirmation  
+• Pre-market → mark bias & levels  
+• First 15 min → observe ORB  
+• Trade only with confirmation  
 • Respect daily risk limits  
 • Review, don’t revenge trade  
 """)
+
+
+# =====================================================
+# AUTO REFRESH (LAST LINE ONLY)
+# =====================================================
+now_ts = time.time()
+if now_ts - st.session_state.last_refresh >= LIVE_REFRESH:
+    st.session_state.last_refresh = now_ts
+    st.experimental_rerun()
