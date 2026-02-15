@@ -1,3 +1,7 @@
+# =====================================================
+# TRADE DECISION LOGIC
+# =====================================================
+
 def trade_decision(
     open_now,
     risk_status,
@@ -6,27 +10,23 @@ def trade_decision(
     resistance,
     options_bias="NEUTRAL"
 ):
-    # 1️⃣ Market check
+    # Market status
     if not open_now:
         return False, "Market closed"
 
-    # 2️⃣ Risk check (supports tuple OR bool)
-    if isinstance(risk_status, tuple):
-        if not risk_status[0]:
-            return False, risk_status[1]
-    else:
-        if not risk_status:
-            return False, "Risk blocked"
+    # Risk limits
+    if not risk_status[0]:
+        return False, risk_status[1]
 
-    # 3️⃣ PCR check
-    if index_pcr is not None and index_pcr < 0.9:
-        return False, "PCR bearish"
+    # Index PCR filter
+    if index_pcr < 0.9:
+        return False, "Index PCR bearish"
 
-    # 4️⃣ Options bias filter
+    # Options-aware filter
     if options_bias == "BEARISH":
         return False, "Options bias bearish"
 
-    # 5️⃣ Price location
+    # Location filter
     if price and resistance and price >= resistance * 0.998:
         return False, "Near resistance"
 

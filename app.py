@@ -15,6 +15,7 @@ from logic.risk import risk_ok
 from logic.decision import trade_decision
 from utils.cache import init_state
 from utils.charts import intraday_candlestick, add_vwap
+
 from services.nifty_options import (
     get_nifty_option_chain,
     extract_atm_region,
@@ -22,6 +23,9 @@ from services.nifty_options import (
     options_sentiment
 )
 
+# =====================================================
+# CACHES
+# =====================================================
 @st.cache_data(ttl=60)
 def cached_atm_analysis(df, spot):
     atm_df, atm = extract_atm_region(df, spot)
@@ -29,6 +33,7 @@ def cached_atm_analysis(df, spot):
     ce_oi = atm_df["ce_oi_chg"].sum()
     pe_oi = atm_df["pe_oi_chg"].sum()
     return atm_df, atm, pcr_atm, ce_oi, pe_oi
+
 
 @st.cache_data(ttl=5)
 def cached_live_price(symbol):
@@ -49,9 +54,12 @@ def cached_index_pcr():
 def cached_nifty_option_chain():
     return get_nifty_option_chain()
 
+
 @st.cache_data(ttl=30)
 def cached_add_vwap(df):
     return add_vwap(df)
+
+
 
 # =====================================================
 # PAGE CONFIG
@@ -102,14 +110,17 @@ st.warning(
 # SESSION STATE
 # =====================================================
 init_state({
+    "open_trade": None,
     "pnl": 0.0,
     "trades": 0,
     "history": [],
     "live_cache": {},
     "alert_state": set(),
+    "last_options_bias": None,
     "levels": {},
     "last_refresh": time.time()
 })
+
 
 
 # =====================================================
@@ -430,12 +441,62 @@ if atm_df is not None:
 options_bias = "NEUTRAL"
 
 if atm_df is not None:
+    ce_oi = atm_df["ce_oi_chg"].sum()
+    pe_oi = atm_df["pe_oi_chg"].sum()
+    pcr_atm = calculate_pcr(atm_df)
+
     if pcr_atm > 1.1 and pe_oi > abs(ce_oi):
         options_bias = "BULLISH"
     elif pcr_atm < 0.9 and ce_oi > abs(pe_oi):
         options_bias = "BEARISH"
 
 st.caption(f"🧠 Options Bias: **{options_bias}**")
+
+# =====================================================
+# 🔔 OPTIONS-BASED ALERTS
+# =====================================================
+options_alerts = []
+
+if atm_df is not None:
+    # Strong bullish options activity
+    if pcr_atm >= 1.2 and pe_oi > 100_000:
+        options_alerts.append("🟢 Strong PUT Writing (Bullish Options Activity)")
+
+    # Strong bearish options activity
+    if pcr_atm <= 0.8 and ce_oi > 100_000:
+        options_alerts.append("🔴 Strong CALL Writing (Bearish Options Activity)")
+
+    # Volatility expansion
+    if ce_oi > 100_000 and pe_oi > 100_000:
+        options_alerts.append("⚠️ Volatility Expansion (Both CE & PE OI Rising)")
+
+    # OI unwinding
+    if ce_oi < -100_000 and pe_oi < -100_000:
+        options_alerts.append("🟡 OI Unwinding (Positions Closing)")
+
+    # Options bias flip alert
+    last_bias = st.session_state.last_options_bias
+    if last_bias and last_bias != options_bias:
+        options_alerts.append(
+            f"🔄 Options Bias Shift: {last_bias} → {options_bias}"
+        )
+
+    # Update stored bias
+    st.session_state.last_options_bias = options_bias
+
+
+# Show only NEW options alerts
+new_options_alerts = []
+for a in options_alerts:
+    if a not in st.session_state.alert_state:
+        new_options_alerts.append(a)
+        st.session_state.alert_state.add(a)
+
+if new_options_alerts:
+    st.subheader("🔔 Options-Based Alerts")
+    for a in new_options_alerts:
+        st.warning(a)
+
 
 # =====================================================
 # TRADE DECISION
@@ -465,6 +526,75 @@ else:
     st.markdown(f"<div class='trade-blocked'>🚫 TRADE BLOCKED<br>{reason}</div>", unsafe_allow_html=True)
 
 st.divider()
+
+# =====================================================
+# 🧪 PAPER TRADE SIMULATOR
+# =====================================================
+st.subheader("🧪 Paper Trade Simulator")
+
+if st.session_state.open_trade is None:
+    qty = st.number_input("Quantity (Lots / Units)", min_value=1, step=1)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("📈 BUY (Paper Trade)", use_container_width=True):
+            if allowed:
+                st.session_state.open_trade = {
+                    "side": "BUY",
+                    "entry_price": price,
+                    "qty": qty,
+                    "time": now_ist().strftime("%H:%M:%S"),
+                    "symbol": stock
+                }
+                st.success("Paper BUY trade opened")
+            else:
+                st.error(f"❌ Trade blocked: {reason}")
+
+    with col2:
+        if st.button("📉 SELL (Paper Trade)", use_container_width=True):
+            if allowed:
+                st.session_state.open_trade = {
+                    "side": "SELL",
+                    "entry_price": price,
+                    "qty": qty,
+                    "time": now_ist().strftime("%H:%M:%S"),
+                    "symbol": stock
+                }
+                st.success("Paper SELL trade opened")
+            else:
+                st.error(f"❌ Trade blocked: {reason}")
+
+else:
+    trade = st.session_state.open_trade
+
+    pnl = (
+        (price - trade["entry_price"]) * trade["qty"]
+        if trade["side"] == "BUY"
+        else (trade["entry_price"] - price) * trade["qty"]
+    )
+
+    st.info(
+        f"📌 Open Trade: {trade['side']} {trade['symbol']} @ {trade['entry_price']} | "
+        f"Qty: {trade['qty']} | PnL: ₹{pnl:.2f}"
+    )
+
+    if st.button("❌ Exit Paper Trade", use_container_width=True):
+        st.session_state.pnl += pnl
+        st.session_state.trades += 1
+
+        st.session_state.history.append({
+            "Symbol": trade["symbol"],
+            "Side": trade["side"],
+            "Entry": trade["entry_price"],
+            "Exit": price,
+            "Qty": trade["qty"],
+            "PnL": round(pnl, 2),
+            "Time": trade["time"]
+        })
+
+        st.session_state.open_trade = None
+        st.success("Paper trade closed")
 
 
 # =====================================================

@@ -11,7 +11,7 @@ APP_TITLE = "Smart Intraday Trading Dashboard"
 LAYOUT = "wide"
 
 # Auto refresh interval (seconds)
-LIVE_REFRESH = 10
+LIVE_REFRESH = 3   # seconds (recommended 2–5)
 
 
 # =====================================================
