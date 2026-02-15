@@ -314,8 +314,13 @@ st.divider()
 # =====================================================
 # DAILY WATCHLIST
 # =====================================================
-st.subheader("🎯 Daily Watchlist")
-
+st.subheader(
+    "🎯 Daily Watchlist",
+    help=(
+        "Automatically generated list of liquid stocks for the day. "
+        "Helps reduce over-trading and keeps focus on high-quality names."
+    )
+)
 today = now_ist().date()
 watchlist = daily_watchlist(INDEX_MAP[index], today)
 
@@ -335,7 +340,16 @@ st.divider()
 # =====================================================
 # SUPPORT / RESISTANCE
 # =====================================================
-st.subheader("📌 Live Support & Resistance")
+st.subheader(
+    "📌 Live Support & Resistance",
+    help=(
+        "Dynamic intraday price levels calculated from the current price.\n\n"
+        "• Support → potential buying zone\n"
+        "• Resistance → potential selling zone\n"
+        "• ORB High / Low → opening range boundaries\n\n"
+        "Used for trade location and risk management."
+    )
+)
 
 if price:
     st.session_state.levels = calc_levels(price)
@@ -354,7 +368,15 @@ st.divider()
 # =====================================================
 # OPTIONS SENTIMENT
 # =====================================================
-st.subheader("🧾 Options Chain (PCR)")
+st.subheader(
+    "🧾 Options Chain (PCR)",
+    help=(
+        "Put–Call Ratio (PCR) reflects options market sentiment.\n\n"
+        "• Higher PCR → bullish bias\n"
+        "• Lower PCR → bearish bias\n\n"
+        "Used as a background sentiment filter, not a standalone signal."
+    )
+)
 
 pcr = get_pcr()
 st.metric("Put–Call Ratio", pcr)
@@ -365,7 +387,18 @@ st.divider()
 # =====================================================
 # TRADE DECISION
 # =====================================================
-st.subheader("📈 Trade Decision Engine")
+st.subheader(
+    "📈 Trade Decision Engine",
+    help=(
+        "Final rule-based system that determines whether a trade is allowed.\n\n"
+        "Checks:\n"
+        "• Market open status\n"
+        "• Daily risk limits\n"
+        "• Options sentiment (PCR)\n"
+        "• Price vs resistance\n\n"
+        "Prevents emotional and rule-breaking trades."
+    )
+)
 
 risk_status = risk_ok(
     st.session_state.trades,
@@ -395,7 +428,13 @@ st.divider()
 # =====================================================
 # TRADE HISTORY
 # =====================================================
-st.subheader("📒 Trade History & PnL")
+st.subheader(
+    "📒 Trade History & PnL",
+    help=(
+        "Tracks simulated intraday trades and cumulative profit or loss.\n\n"
+        "Used for self-review, discipline, and performance improvement."
+    )
+)
 
 st.metric("PnL Today (₹)", round(st.session_state.pnl, 2))
 
@@ -410,7 +449,13 @@ st.divider()
 # =====================================================
 # HOW TO USE
 # =====================================================
-st.subheader("📘 How to Use This Dashboard")
+st.subheader(
+    "📘 How to Use This Dashboard",
+    help=(
+        "Recommended professional workflow for using this dashboard "
+        "in a disciplined intraday trading process."
+    )
+)
 
 with st.expander("Click to read"):
     st.markdown("""
