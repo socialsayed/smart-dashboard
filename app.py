@@ -372,4 +372,4 @@ with st.expander("Click to read"):
 now_ts = time.time()
 if now_ts - st.session_state.last_refresh >= LIVE_REFRESH:
     st.session_state.last_refresh = now_ts
-    st.experimental_rerun()
+    st.rerun()
