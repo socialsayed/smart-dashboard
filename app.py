@@ -15,7 +15,43 @@ from logic.risk import risk_ok
 from logic.decision import trade_decision
 from utils.cache import init_state
 from utils.charts import intraday_candlestick, add_vwap
+from services.nifty_options import (
+    get_nifty_option_chain,
+    extract_atm_region,
+    calculate_pcr,
+    options_sentiment
+)
 
+@st.cache_data(ttl=60)
+def cached_atm_analysis(df, spot):
+    atm_df, atm = extract_atm_region(df, spot)
+    pcr_atm = calculate_pcr(atm_df)
+    ce_oi = atm_df["ce_oi_chg"].sum()
+    pe_oi = atm_df["pe_oi_chg"].sum()
+    return atm_df, atm, pcr_atm, ce_oi, pe_oi
+
+@st.cache_data(ttl=5)
+def cached_live_price(symbol):
+    return live_price(symbol)
+
+
+@st.cache_data(ttl=30)
+def cached_intraday_data(symbol):
+    return get_intraday_data(symbol)
+
+
+@st.cache_data(ttl=30)
+def cached_index_pcr():
+    return get_pcr()
+
+
+@st.cache_data(ttl=60)
+def cached_nifty_option_chain():
+    return get_nifty_option_chain()
+
+@st.cache_data(ttl=30)
+def cached_add_vwap(df):
+    return add_vwap(df)
 
 # =====================================================
 # PAGE CONFIG
@@ -70,6 +106,7 @@ init_state({
     "trades": 0,
     "history": [],
     "live_cache": {},
+    "alert_state": set(),
     "levels": {},
     "last_refresh": time.time()
 })
@@ -172,7 +209,7 @@ st.divider()
 # =====================================================
 st.subheader("📡 Live Price", help="Latest traded price (LTP).")
 
-price, src = live_price(stock)
+price, src = cached_live_price(stock)
 if price:
     st.session_state.live_cache[stock] = (price, src)
 
@@ -190,10 +227,10 @@ st.subheader(
     help="3-minute candles with VWAP, ORB, volume, and breakout markers."
 )
 
-df = get_intraday_data(stock)
+df = cached_intraday_data(stock)
 
 if df is not None and not df.empty:
-    df = add_vwap(df)
+    df = cached_add_vwap(df)
     fig = intraday_candlestick(df, stock)
     st.plotly_chart(fig, use_container_width=True)
 else:
@@ -247,7 +284,7 @@ watchlist = daily_watchlist(INDEX_MAP[index], today)
 rows = []
 for sym in watchlist:
     if sym not in st.session_state.live_cache:
-        p, sc = live_price(sym)
+        p, sc = cached_live_price(sym)
         st.session_state.live_cache[sym] = (p, sc)
     p, sc = st.session_state.live_cache[sym]
     rows.append({"Stock": sym, "Live Price": p if p else "—", "Source": sc})
@@ -265,8 +302,11 @@ st.subheader(
     help="Key intraday levels used for trade location."
 )
 
-if price:
+last_price = st.session_state.get("last_price")
+
+if price and price != last_price:
     st.session_state.levels = calc_levels(price)
+    st.session_state.last_price = price
 
 levels = st.session_state.levels
 c1, c2, c3, c4 = st.columns(4)
@@ -298,17 +338,104 @@ with st.expander("ℹ️ Live Level Context (Auto-updating)"):
 
 st.divider()
 
+# =====================================================
+# 🔔 ALERTS (PRICE + LEVEL BASED)
+# =====================================================
+alerts = []
+
+if price and levels:
+    if price > levels.get("orb_high", float("inf")):
+        alerts.append("📈 ORB High Breakout")
+    if price < levels.get("orb_low", 0):
+        alerts.append("📉 ORB Low Breakdown")
+    if abs(price - levels.get("support", price)) / price < 0.002:
+        alerts.append("🟢 Near Support")
+    if abs(price - levels.get("resistance", price)) / price < 0.002:
+        alerts.append("🔴 Near Resistance")
+
+new_alerts = []
+
+for a in alerts:
+    if a not in st.session_state.alert_state:
+        new_alerts.append(a)
+        st.session_state.alert_state.add(a)
+
+if new_alerts:
+    st.subheader("🔔 Alerts")
+    for a in new_alerts:
+        st.warning(a)
 
 # =====================================================
 # OPTIONS SENTIMENT
 # =====================================================
 st.subheader("🧾 Options Chain (PCR)", help="Options sentiment indicator.")
 
-pcr = get_pcr()
-st.metric("Put–Call Ratio", pcr)
+index_pcr = cached_index_pcr()
+st.metric("Put–Call Ratio", index_pcr)
 
 st.divider()
 
+
+# =====================================================
+# NIFTY OPTIONS CHAIN (INTRADAY)
+# =====================================================
+st.subheader(
+    "📊 NIFTY Options Chain (Intraday)",
+    help="ATM & nearby strikes OI, PCR, and writing activity for intraday bias."
+)
+
+try:
+    df, spot, expiry = cached_nifty_option_chain()
+    atm_df, atm, pcr_atm, ce_oi, pe_oi = cached_atm_analysis(df, spot)
+    sentiment = options_sentiment(
+        pcr_atm,
+        atm_df["ce_oi_chg"].sum(),
+        atm_df["pe_oi_chg"].sum()
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("NIFTY Spot", spot)
+    c2.metric("ATM Strike", atm)
+    c3.metric("PCR (ATM Zone)", pcr_atm)
+    c4.metric("Expiry", expiry)
+
+    st.write("**Market Bias:**", sentiment)
+
+    st.dataframe(
+        atm_df.sort_values("strike"),
+        use_container_width=True
+    )
+
+except Exception:
+    atm_df = None
+    st.warning(
+        "NIFTY options chain unavailable at the moment. "
+        "This can happen outside market hours or due to NSE rate limits."
+    )
+
+# =====================================================
+# 📊 OI DOMINANCE (ATM ZONE)
+# =====================================================
+if atm_df is not None:
+    ce_oi = atm_df["ce_oi_chg"].sum()
+    pe_oi = atm_df["pe_oi_chg"].sum()
+
+    st.caption(
+        f"📊 OI Delta → CE: {ce_oi:+,.0f} | PE: {pe_oi:+,.0f}"
+    )
+
+# =====================================================
+# 🧠 STRATEGY CONTEXT (OPTIONS-AWARE)
+# =====================================================
+options_bias = "NEUTRAL"
+
+if atm_df is not None:
+    if pcr_atm > 1.1 and pe_oi > abs(ce_oi):
+        options_bias = "BULLISH"
+    elif pcr_atm < 0.9 and ce_oi > abs(pe_oi):
+        options_bias = "BEARISH"
+
+st.caption(f"🧠 Options Bias: **{options_bias}**")
 
 # =====================================================
 # TRADE DECISION
@@ -325,10 +452,12 @@ risk_status = risk_ok(
 allowed, reason = trade_decision(
     open_now,
     risk_status,
-    pcr,
+    index_pcr,
     price,
-    levels.get("resistance", 0)
+    levels.get("resistance", 0),
+    options_bias=options_bias
 )
+
 
 if allowed:
     st.markdown("<div class='trade-allowed'>✅ TRADE ALLOWED</div>", unsafe_allow_html=True)
@@ -370,6 +499,7 @@ with st.expander("Click to read"):
 # AUTO REFRESH (LAST LINE ONLY)
 # =====================================================
 now_ts = time.time()
-if now_ts - st.session_state.last_refresh >= LIVE_REFRESH:
+REFRESH = LIVE_REFRESH if open_now else 20
+if now_ts - st.session_state.last_refresh >= REFRESH:
     st.session_state.last_refresh = now_ts
     st.rerun()
