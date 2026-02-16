@@ -237,9 +237,18 @@ st.divider()
 # INTRADAY CHART
 # =====================================================
 
-df, interval = get_intraday_data(stock)
+result = get_intraday_data(stock)
 
-interval_label = "3-Minute" if interval == "3m" else "5-Minute"
+if not isinstance(result, tuple) or len(result) != 2:
+    df, interval = None, None
+else:
+    df, interval = result
+
+interval_label = (
+    "3-Minute" if interval == "3m"
+    else "5-Minute" if interval == "5m"
+    else "Intraday"
+)
 
 st.subheader(
     f"📊 Intraday Chart ({interval_label})",
