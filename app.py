@@ -16,6 +16,8 @@ from logic.decision import trade_decision
 from utils.cache import init_state
 from utils.charts import intraday_candlestick, add_vwap
 
+
+
 from services.nifty_options import (
     get_nifty_option_chain,
     extract_atm_region,
@@ -117,6 +119,7 @@ init_state({
     "live_cache": {},
     "alert_state": set(),
     "last_options_bias": None,
+    "last_intraday_df": None,   # ✅ ADD THIS
     "levels": {},
     "last_refresh": time.time()
 })
@@ -233,20 +236,22 @@ st.divider()
 # =====================================================
 # INTRADAY CHART
 # =====================================================
+
+df, interval = get_intraday_data(stock)
+
+interval_label = "3-Minute" if interval == "3m" else "5-Minute"
+
 st.subheader(
-    "📊 Intraday Chart (3-Minute)",
-    help="3-minute candles with VWAP, ORB, volume, and breakout markers."
+    f"📊 Intraday Chart ({interval_label})",
+    help="Intraday candles with VWAP, ORB, volume, and breakout markers."
 )
 
-df = cached_intraday_data(stock)
-
 if df is not None and not df.empty:
-    df = cached_add_vwap(df)
+    df = add_vwap(df)
     fig = intraday_candlestick(df, stock)
     st.plotly_chart(fig, use_container_width=True)
 else:
-    st.info("Intraday data available only during market hours.")
-
+    st.warning("⚠️ Intraday data unavailable at the moment.")
 
 # =====================================================
 # WHY THIS SIGNAL?
@@ -419,10 +424,17 @@ try:
 
 except Exception:
     atm_df = None
-    st.warning(
-        "NIFTY options chain unavailable at the moment. "
-        "This can happen outside market hours or due to NSE rate limits."
-    )
+
+    if open_now:
+        st.warning(
+            "⚠️ Unable to fetch NIFTY options chain right now. "
+            "This may be due to NSE rate limits."
+        )
+    else:
+        st.info(
+            "🕒 Market is closed. "
+            "NIFTY options chain updates during market hours."
+        )
 
 # =====================================================
 # 📊 OI DOMINANCE (ATM ZONE)
