@@ -178,6 +178,49 @@ def detect_live_resistance(df: pd.DataFrame, lookback=3):
     valid = [h for h in swing_highs if h > current_price]
 
     return min(valid) if valid else None
+    
+def refresh_risk_from_history():
+    closed = [
+        t for t in st.session_state.history
+        if t["Status"] == "CLOSED" and isinstance(t.get("PnL"), (int, float))
+    ]
+    st.session_state.trades = len(closed)
+    st.session_state.pnl = sum(t["PnL"] for t in closed)
+    
+   
+# =====================================================
+# 🍪 NSE COOKIE STATUS & EXPIRY CHECK (AUTOMATED)
+# =====================================================
+
+COOKIE_PATH = "data/nse_cookies.json"
+
+COOKIE_STALE_HOURS = 12      # warn user
+COOKIE_EXPIRE_HOURS = 36     # force re-export
+
+
+def get_cookie_age_hours():
+    if not os.path.exists(COOKIE_PATH):
+        return None
+    mtime = os.path.getmtime(COOKIE_PATH)
+    age_seconds = time.time() - mtime
+    return round(age_seconds / 3600, 1)
+
+
+def get_cookie_status():
+    """
+    Returns: (status, age_hours)
+
+    status ∈ {"MISSING", "FRESH", "STALE", "EXPIRED"}
+    """
+    age = get_cookie_age_hours()
+
+    if age is None:
+        return "MISSING", None
+    if age >= COOKIE_EXPIRE_HOURS:
+        return "EXPIRED", age
+    if age >= COOKIE_STALE_HOURS:
+        return "STALE", age
+    return "FRESH", age
 
 # =====================================================
 # 🔍 SANITY CHECK (INTRADAY DATA)
@@ -211,6 +254,7 @@ def sanity_check_intraday(df, interval, symbol):
 # =====================================================
 # 📁 PAPER TRADE PERSISTENCE (DAILY)
 # =====================================================
+
 PAPER_TRADE_DIR = "data/paper_trades"
 
 def get_trade_date():
@@ -222,21 +266,82 @@ def get_trade_file():
 
 def load_day_trades():
     path = get_trade_file()
-    if os.path.exists(path):
-        df = pd.read_csv(path)
-        # Fill missing columns with defaults for backward compatibility
-        for col in ["Strategy", "Options Bias", "Market Status", "Notes"]:
-            if col not in df.columns:
-                df[col] = ""
-        return df.to_dict("records")
-    return []
+
+    if not os.path.exists(path):
+        return []
+
+    try:
+        # Use python engine for schema tolerance
+        df = pd.read_csv(
+    path,
+    engine="python",
+    on_bad_lines="skip"
+)
+    except Exception as e:
+        st.error(f"⚠️ Paper trade CSV corrupted: {e}")
+        return []
+
+    # 🔒 Enforce fixed schema
+    expected_cols = [
+        "Trade ID",
+        "Date",
+        "Symbol",
+        "Side",
+        "Entry",
+        "Exit",
+        "Qty",
+        "PnL",
+        "Entry Time",
+        "Exit Time",
+        "Strategy",
+        "Options Bias",
+        "Market Status",
+        "Notes",
+        "Status",
+    ]
+
+    # Add missing columns safely
+    for col in expected_cols:
+        if col not in df.columns:
+            df[col] = None
+
+    # Drop extra columns silently
+    df = df[expected_cols]
+
+    return df.to_dict("records")
+
 
 def append_trade(row: dict):
     path = get_trade_file()
     df = pd.DataFrame([row])
     header = not os.path.exists(path)
     df.to_csv(path, mode="a", header=header, index=False)
+    
+def update_trade_in_csv(trade_id: str, updates: dict):
+    path = get_trade_file()
+    if not os.path.exists(path):
+        return
 
+    df = pd.read_csv(path)
+
+    if "Trade ID" not in df.columns:
+        return
+
+    mask = df["Trade ID"] == trade_id
+    if not mask.any():
+        return
+
+    for k, v in updates.items():
+        if k in df.columns:
+            df.loc[mask, k] = v
+
+    df.to_csv(path, index=False)
+    
+    
+def generate_trade_id():
+    return f"T{int(time.time() * 1000)}"
+    
+    
 
 # =====================================================
 # CACHES
@@ -323,7 +428,6 @@ Use this tool for structured decision-making, not impulse trading.
 # SESSION STATE
 # =====================================================
 init_state({
-    "open_trade": None,
     "pnl": 0.0,
     "trades": 0,
     "history": [],
@@ -335,15 +439,15 @@ init_state({
     "last_refresh": time.time()
 })
 
-# Load persisted paper trades for today
+# Load persisted trades for today (OPEN + CLOSED)
 if not st.session_state.history:
     st.session_state.history = load_day_trades()
-    if st.session_state.history:
-        st.session_state.trades = len(st.session_state.history)
-        st.session_state.pnl = sum(t.get("PnL", 0) for t in st.session_state.history)
 
+    closed = [t for t in st.session_state.history if t["Status"] == "CLOSED"]
+    st.session_state.trades = len(closed)
+    st.session_state.pnl = sum(t["PnL"] for t in closed)
 
-
+        
 # =====================================================
 # HEADER
 # =====================================================
@@ -375,7 +479,7 @@ st.sidebar.header(
 )
 
 max_trades = st.sidebar.number_input(
-    "Max Trades / Day", 1, 10, 3,
+    "Max Trades / Day", 1, 100, 3,
     help="Maximum intraday trades allowed."
 )
 
@@ -558,14 +662,15 @@ st.subheader(
 )
 
 open_now, next_open = market_status()
+ist_now = now_ist()
+
 c1, c2, c3 = st.columns(3)
 
-c1.metric("🇮🇳 IST Time", now_ist().strftime("%d %b %Y, %H:%M:%S"))
+c1.metric("🇮🇳 IST Time", ist_now.strftime("%d %b %Y, %H:%M:%S"))
 c2.metric("Market Status", "🟢 OPEN" if open_now else "🔴 CLOSED")
 
 if not open_now and next_open:
     c3.metric("Next Market Open", next_open.strftime("%d %b %Y %H:%M IST"))
-    st.info(f"⏳ Countdown: {countdown(next_open)}")
 
 st.divider()
 
@@ -595,26 +700,50 @@ st.subheader(
     help=SECTION_HELP["live_price"]
 )
 
+# Fetch once per run
 price, src = cached_live_price(stock)
-if price:
+
+# Store last valid price
+if price is not None:
     st.session_state.live_cache[stock] = (price, src)
 
 price, src = st.session_state.live_cache.get(stock, (None, None))
-delta = None
 last_price = st.session_state.get("last_price_metric")
 
-if last_price and price:
+delta = None
+if last_price is not None and price is not None:
     delta = round(price - last_price, 2)
 
 st.metric(
     stock,
-    price if price else "—",
-    delta=f"{delta:+}" if delta else None,
+    price if price is not None else "—",
+    delta=f"{delta:+}" if delta is not None else None,
     help=f"Source: {src}"
 )
 
-if price:
+if price is not None:
     st.session_state.last_price_metric = price
+
+st.divider()
+
+# =====================================================
+# TOP METRICS
+# =====================================================
+st.subheader("📊 Top Metrics")
+
+ltp = st.session_state.get("last_price_metric")
+prev_close = st.session_state.get("prev_close")
+
+change = pct_change = None
+if ltp is not None and prev_close is not None:
+    change = round(ltp - prev_close, 2)
+    pct_change = round((change / prev_close) * 100, 2)
+
+c1, c2, c3 = st.columns(3)
+
+c1.metric("LTP", ltp if ltp is not None else "—")
+c2.metric("Change", f"{change:+}" if change is not None else "—")
+c3.metric("% Change", f"{pct_change:+}%" if pct_change is not None else "—")
 
 st.divider()
 
@@ -814,14 +943,26 @@ if new_alerts:
 
 
 # =====================================================
-# OPTIONS SENTIMENT
+# INDEX OPTIONS SENTIMENT (PCR)
 # =====================================================
 st.subheader(
-    "🧾 Options Chain (PCR)",
+    "🧾 Index Options Sentiment (PCR)",
     help=SECTION_HELP["options_pcr"]
 )
+
 index_pcr = cached_index_pcr()
-st.metric("Put–Call Ratio", index_pcr)
+
+if index_pcr is not None:
+    st.metric("Put–Call Ratio (Index)", index_pcr)
+
+    if index_pcr > 1.1:
+        st.success("🟢 Index Options Bias: Bullish")
+    elif index_pcr < 0.9:
+        st.error("🔴 Index Options Bias: Bearish")
+    else:
+        st.info("⚪ Index Options Bias: Neutral / Range")
+else:
+    st.warning("⚠️ Index PCR data unavailable at the moment.")
 
 st.divider()
 
@@ -834,41 +975,110 @@ st.subheader(
     help=SECTION_HELP["nifty_options"]
 )
 
-try:
-    df_options, spot, expiry = cached_nifty_option_chain()
-    atm_df, atm, pcr_atm, ce_oi, pe_oi = cached_atm_analysis(df_options, spot)
-    sentiment = options_sentiment(
-        pcr_atm,
-        atm_df["ce_oi_chg"].sum(),
-        atm_df["pe_oi_chg"].sum()
+cookie_status, cookie_age = get_cookie_status()
+
+# ALWAYS initialize to avoid NameError
+df_options = None
+spot = None
+expiry = None
+atm_df = None
+
+# -----------------------------------------------------
+# USER STATUS & GUIDANCE
+# -----------------------------------------------------
+
+if cookie_status == "MISSING":
+    st.error(
+        "🚨 **NSE COOKIE SETUP REQUIRED**\n\n"
+        "NSE blocks automated access to options data.\n"
+        "To enable **LIVE NIFTY Options Chain**, follow these steps **once**:\n\n"
+        "**DESKTOP ONLY STEPS:**\n"
+        "1️⃣ Open **Google Chrome (Desktop)**\n"
+        "2️⃣ Visit 👉 https://www.nseindia.com/option-chain\n"
+        "3️⃣ Wait until NIFTY options load fully\n"
+        "4️⃣ Install Chrome extension **EditThisCookie**\n"
+        "5️⃣ Click extension → **Export → JSON**\n"
+        "6️⃣ Save file as:\n"
+        "`data/nse_cookies.json`\n"
+        "7️⃣ Restart the Streamlit app\n\n"
+        "📱 **Mobile users:** Viewing works, cookie export requires desktop."
     )
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("NIFTY Spot", spot)
-    c2.metric("ATM Strike", atm)
-    c3.metric("PCR (ATM Zone)", pcr_atm)
-    c4.metric("Expiry", expiry)
-
-    st.write("**Market Bias:**", sentiment)
-
-    st.dataframe(
-        atm_df.sort_values("strike"),
-        use_container_width=True
+elif cookie_status == "EXPIRED":
+    st.error(
+        f"🚨 **NSE COOKIES EXPIRED**\n\n"
+        f"Last updated: **{cookie_age} hours ago**\n\n"
+        "NSE cookies usually expire every 1–3 days.\n\n"
+        "👉 Please re-export cookies on **desktop**.\n\n"
+        "📱 Mobile users: Ask someone with desktop access."
     )
 
-except Exception:
-    atm_df = None
+elif cookie_status == "STALE":
+    st.warning(
+        f"⚠️ **NSE COOKIES MAY EXPIRE SOON**\n\n"
+        f"Last updated: **{cookie_age} hours ago**\n\n"
+        "Options data may stop loading anytime.\n"
+        "👉 Recommended: Re-export cookies today.\n\n"
+        "📱 Mobile users: Viewing OK, refresh requires desktop."
+    )
 
-    if open_now:
-        st.warning(
-            "⚠️ Unable to fetch NIFTY options chain right now. "
-            "This may be due to NSE rate limits."
-        )
-    else:
-        st.info(
-            "🕒 Market is closed. "
-            "NIFTY options chain updates during market hours."
-        )
+else:
+    st.success(
+        f"🟢 NSE Cookies Active | Last updated **{cookie_age} hrs ago**"
+    )
+
+# -----------------------------------------------------
+# FETCH + PROCESS OPTIONS DATA (ONLY IF SAFE)
+# -----------------------------------------------------
+if cookie_status == "FRESH":
+    try:
+        df_options, spot, expiry = cached_nifty_option_chain()
+
+        # ✅ Process ONLY if data is valid
+        if df_options is not None and spot is not None:
+            atm_df, atm, pcr_atm, ce_oi, pe_oi = cached_atm_analysis(
+                df_options, spot
+            )
+
+            sentiment = options_sentiment(
+                pcr_atm,
+                atm_df["ce_oi_chg"].sum(),
+                atm_df["pe_oi_chg"].sum()
+            )
+
+            st.success("🟢 Options Data: LIVE (via NSE Browser Cookies)")
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("NIFTY Spot", spot)
+            c2.metric("ATM Strike", atm)
+            c3.metric("PCR (ATM Zone)", pcr_atm)
+            c4.metric("Expiry", expiry)
+
+            st.write("**Market Bias:**", sentiment)
+
+            st.dataframe(
+                atm_df.sort_values("strike"),
+                use_container_width=True
+            )
+
+    except Exception:
+        df_options = None
+        atm_df = None
+
+# -----------------------------------------------------
+# NSE BLOCK / EMPTY RESPONSE
+# -----------------------------------------------------
+if cookie_status == "FRESH" and df_options is None:
+    st.warning(
+        "⚠️ **NSE TEMPORARY BLOCK DETECTED**\n\n"
+        "Cookies are present, but NSE did not return data.\n\n"
+        "Possible reasons:\n"
+        "• NSE rate limiting\n"
+        "• Temporary IP block\n\n"
+        "👉 Wait 2–3 minutes and refresh.\n"
+        "👉 If this repeats, re-export cookies."
+    )
+
 
 # =====================================================
 # 📊 OI DOMINANCE (ATM ZONE)
@@ -887,16 +1097,18 @@ if atm_df is not None:
 options_bias = "NEUTRAL"
 
 if atm_df is not None:
+    pcr_atm = calculate_pcr(atm_df)
     ce_oi = atm_df["ce_oi_chg"].sum()
     pe_oi = atm_df["pe_oi_chg"].sum()
-    pcr_atm = calculate_pcr(atm_df)
 
-    if pcr_atm > 1.1 and pe_oi > abs(ce_oi):
-        options_bias = "BULLISH"
-    elif pcr_atm < 0.9 and ce_oi > abs(pe_oi):
-        options_bias = "BEARISH"
+    if pcr_atm is not None:
+        if pcr_atm > 1.1 and pe_oi > abs(ce_oi):
+            options_bias = "BULLISH"
+        elif pcr_atm < 0.9 and ce_oi > abs(pe_oi):
+            options_bias = "BEARISH"
 
 st.caption(f"🧠 Options Bias: **{options_bias}**")
+
 
 # =====================================================
 # 🔔 OPTIONS-BASED ALERTS
@@ -904,6 +1116,12 @@ st.caption(f"🧠 Options Bias: **{options_bias}**")
 options_alerts = []
 
 if atm_df is not None:
+
+    # Ensure values are always defined
+    pcr_atm = calculate_pcr(atm_df)
+    ce_oi = atm_df["ce_oi_chg"].sum()
+    pe_oi = atm_df["pe_oi_chg"].sum()
+
     # Strong bullish options activity
     if pcr_atm >= 1.2 and pe_oi > 100_000:
         options_alerts.append("🟢 Strong PUT Writing (Bullish Options Activity)")
@@ -927,7 +1145,7 @@ if atm_df is not None:
             f"🔄 Options Bias Shift: {last_bias} → {options_bias}"
         )
 
-    # Update stored bias
+    # Persist latest bias
     st.session_state.last_options_bias = options_bias
 
 
@@ -942,7 +1160,6 @@ if new_options_alerts:
     st.subheader("🔔 Options-Based Alerts")
     for a in new_options_alerts:
         st.warning(a)
-
 
 # =====================================================
 # TRADE DECISION
@@ -996,127 +1213,256 @@ else:
 st.divider()
 
 # =====================================================
-# 🧪 PAPER TRADE SIMULATOR
+# 🧪 PAPER TRADE SIMULATOR (EXECUTION CONTROLS)
 # =====================================================
 st.subheader(
     "🧪 Paper Trade Simulator",
     help=SECTION_HELP["paper_trade"]
 )
 
-if st.session_state.open_trade is None:
-    qty = st.number_input("Quantity (Lots / Units)", min_value=1, step=1)
+ltp = st.session_state.get("last_price_metric")
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("📈 BUY (Paper Trade)", use_container_width=True):
-            if allowed:
-                st.session_state.open_trade = {
-                    "side": "BUY",
-                    "entry_price": price,
-                    "qty": qty,
-                    "time": now_ist().strftime("%H:%M:%S"),
-                    "symbol": stock
-                }
-                st.success("Paper BUY trade opened")
-            else:
-                st.error(f"❌ Trade blocked: {reason}")
-
-    with col2:
-        if st.button("📉 SELL (Paper Trade)", use_container_width=True):
-            if allowed:
-                st.session_state.open_trade = {
-                    "side": "SELL",
-                    "entry_price": price,
-                    "qty": qty,
-                    "time": now_ist().strftime("%H:%M:%S"),
-                    "symbol": stock
-                }
-                st.success("Paper SELL trade opened")
-            else:
-                st.error(f"❌ Trade blocked: {reason}")
-
-else:
-    trade = st.session_state.open_trade
-
-    pnl = (
-        (price - trade["entry_price"]) * trade["qty"]
-        if trade["side"] == "BUY"
-        else (trade["entry_price"] - price) * trade["qty"]
-    )
-
-    st.info(
-        f"📌 Open Trade: {trade['side']} {trade['symbol']} @ {trade['entry_price']} | "
-        f"Qty: {trade['qty']} | PnL: ₹{pnl:.2f}"
-    )
-
-    notes = st.text_area(
-        "🧠 Trade Notes / Journal",
-        placeholder=(
-            "Why did I take this trade?\n"
-            "Was it according to plan?\n"
-            "Emotion, mistake, lesson, improvement..."
-        )
-    )
-
-    if st.button("❌ Exit Paper Trade", use_container_width=True):
-        exit_time = now_ist().strftime("%H:%M:%S")
-
-        trade_row = {
-            "Date": get_trade_date(),
-            "Symbol": trade["symbol"],
-            "Side": trade["side"],
-            "Entry": trade["entry_price"],
-            "Exit": price,
-            "Qty": trade["qty"],
-            "PnL": round(pnl, 2),
-            "Entry Time": trade["time"],
-            "Exit Time": exit_time,
-            "Strategy": strategy,
-            "Options Bias": options_bias,
-            "Market Status": "OPEN" if open_now else "CLOSED",
-            "Notes": notes.strip(),
-        }
-
-        append_trade(trade_row)
-
-        st.session_state.pnl += pnl
-        st.session_state.trades += 1
-        st.session_state.history.append(trade_row)
-
-        st.session_state.open_trade = None
-        st.success("✅ Paper trade closed & journal saved")
-
-
-# =====================================================
-# TRADE HISTORY
-# =====================================================
-st.subheader(
-    "📒 Trade History & PnL",
-    help=SECTION_HELP["trade_history"]
+qty = st.number_input(
+    "Quantity (Lots / Units)",
+    min_value=1,
+    step=1
 )
 
-st.metric("PnL Today (₹)", round(st.session_state.pnl, 2))
+col1, col2 = st.columns(2)
 
-if st.session_state.history:
-    st.dataframe(st.session_state.history, use_container_width=True)
+# -------------------------
+# BUY
+# -------------------------
+with col1:
+    if st.button("📈 BUY (Paper Trade)", use_container_width=True):
+
+        if not allowed:
+            st.error(f"❌ Trade blocked: {reason}")
+        elif ltp is None:
+            st.error("❌ Live price unavailable.")
+        else:
+            trade_id = generate_trade_id()
+            entry_time = now_ist().strftime("%H:%M:%S")
+
+            trade_row = {
+                "Trade ID": trade_id,
+                "Date": get_trade_date(),
+                "Symbol": stock,
+                "Side": "BUY",
+                "Entry": round(ltp, 2),
+                "Exit": None,
+                "Qty": qty,
+                "PnL": 0.0,
+                "Entry Time": entry_time,
+                "Exit Time": None,
+                "Strategy": strategy,
+                "Options Bias": options_bias,
+                "Market Status": "OPEN",
+                "Notes": "",
+                "Status": "OPEN",
+            }
+
+            append_trade(trade_row)
+
+            st.success(f"📈 BUY executed | {stock} @ {ltp}")
+
+            # 🔁 Reload + recompute risk
+            st.session_state.history = load_day_trades()
+            refresh_risk_from_history()
+            st.rerun()
+
+# -------------------------
+# EXIT (LATEST OPEN)
+# -------------------------
+with col2:
+    if st.button("❌ EXIT POSITION", use_container_width=True):
+
+        open_trades = [
+            t for t in load_day_trades()
+            if t["Symbol"] == stock and t["Status"] == "OPEN"
+        ]
+
+        if not open_trades:
+            st.warning("No open position for this stock.")
+        elif ltp is None:
+            st.error("❌ Live price unavailable.")
+        else:
+            t = open_trades[-1]  # exit latest open trade
+            pnl = round((ltp - t["Entry"]) * t["Qty"], 2)
+            exit_time = now_ist().strftime("%H:%M:%S")
+
+            update_trade_in_csv(
+                t["Trade ID"],
+                {
+                    "Exit": ltp,
+                    "PnL": pnl,
+                    "Exit Time": exit_time,
+                    "Status": "CLOSED",
+                }
+            )
+
+            st.success(f"❌ {stock} CLOSED | PnL ₹{pnl}")
+
+            # 🔁 Reload + recompute risk
+            st.session_state.history = load_day_trades()
+            refresh_risk_from_history()
+            st.rerun()
+
+# =====================================================
+# 📋 PAPER TRADES – TODAY (OPEN + CLOSED)
+# =====================================================
+st.subheader("📋 Paper Trades – Today")
+
+trades_today = load_day_trades()
+ltp = st.session_state.get("last_price_metric")
+
+open_trades = [t for t in trades_today if t["Status"] == "OPEN"]
+closed_trades = [t for t in trades_today if t["Status"] == "CLOSED"]
+
+# =====================================================
+# NET LIVE PnL (ALL OPEN TRADES)
+# =====================================================
+if open_trades and ltp is not None:
+    net_live_pnl = sum(
+        (ltp - t["Entry"]) * t["Qty"]
+        for t in open_trades
+        if isinstance(t.get("Entry"), (int, float))
+    )
+
+    color = (
+        "green" if net_live_pnl > 0
+        else "red" if net_live_pnl < 0
+        else "gray"
+    )
+
+    st.markdown(
+        f"""
+        <h3 style="color:{color}; margin-bottom:0;">
+            📈 Net Live PnL (Open Trades): ₹{net_live_pnl:.2f}
+        </h3>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.divider()
+
+
+# =========================
+# OPEN TRADES
+# =========================
+if open_trades:
+    st.markdown("### 🟢 Open Trades")
+
+    # ✅ Column headers (ADD HERE — once)
+    h1, h2, h3, h4, h5, h6, h7, h8 = st.columns(
+        [1.2, 0.8, 0.6, 1, 1, 0.8, 0.9, 1.2]
+    )
+    h1.markdown("**Symbol**")
+    h2.markdown("**Side**")
+    h3.markdown("**Qty**")
+    h4.markdown("**Entry**")
+    h5.markdown("**Live Price**")
+    h6.markdown("**Live PnL (₹)**")
+    h7.markdown("**Status**")
+    h8.markdown("**Action**")
+
+    for t in open_trades:
+        live_pnl = None
+        if ltp is not None:
+            live_pnl = round((ltp - t["Entry"]) * t["Qty"], 2)
+
+        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
+            [1.2, 0.8, 0.6, 1, 1, 0.8, 0.9, 1.2]
+        )
+
+        c1.write(t["Symbol"])
+        c2.write(t["Side"])
+        c3.write(t["Qty"])
+        c4.write(t["Entry"])
+        c5.write(ltp if ltp is not None else "—")
+        if live_pnl is None:
+            c6.write("—")
+        elif live_pnl > 0:
+            c6.markdown(f"<span style='color:green;'>+₹{live_pnl}</span>", unsafe_allow_html=True)
+        elif live_pnl < 0:
+            c6.markdown(f"<span style='color:red;'>₹{live_pnl}</span>", unsafe_allow_html=True)
+        else:
+            c6.write("₹0.0")
+
+        c7.write("OPEN")
+
+        if c8.button("❌ Exit", key=f"exit_{t['Trade ID']}"):
+            exit_price = ltp
+            exit_time = now_ist().strftime("%H:%M:%S")
+            pnl = round((exit_price - t["Entry"]) * t["Qty"], 2)
+
+            update_trade_in_csv(
+                t["Trade ID"],
+                {
+                    "Exit": exit_price,
+                    "PnL": pnl,
+                    "Exit Time": exit_time,
+                    "Status": "CLOSED",
+                }
+            )
+
+            st.success(f"❌ {t['Symbol']} CLOSED | PnL ₹{pnl}")
+
+            st.session_state.history = load_day_trades()
+            refresh_risk_from_history()
+            st.rerun()
 else:
-    st.info("No trades recorded yet")
+    st.info("No OPEN trades.")
+
+# =========================
+# CLOSED TRADES
+# =========================
+if closed_trades:
+    st.markdown("### 🔵 Closed Trades")
+
+    rows = []
+    for t in closed_trades:
+        rows.append({
+            "Symbol": t["Symbol"],
+            "Side": t["Side"],
+            "Qty": t["Qty"],
+            "Entry": t["Entry"],
+            "Exit": t["Exit"],
+            "PnL (₹)": t["PnL"],
+            "Entry Time": t["Entry Time"],
+            "Exit Time": t["Exit Time"],
+            "Strategy": t["Strategy"],
+        })
+
+    st.dataframe(
+        pd.DataFrame(rows),
+        use_container_width=True,
+        hide_index=True
+    )
+else:
+    st.info("No CLOSED trades yet today.")
 
 # =====================================================
 # 📊 TRADE ANALYTICS DASHBOARD
 # =====================================================
+# Always define df_trades safely
+df_trades = pd.DataFrame()
+
 st.subheader("📊 Trade Analytics")
 
-if st.session_state.history:
-    df_trades = pd.DataFrame(st.session_state.history)
+closed_trades = [
+    t for t in st.session_state.history
+    if t.get("Status") == "CLOSED" and isinstance(t.get("PnL"), (int, float))
+]
 
-    # Core metrics
+if closed_trades:
+    df_trades = pd.DataFrame(closed_trades)
+
     total_trades = len(df_trades)
     wins = df_trades[df_trades["PnL"] > 0]
     losses = df_trades[df_trades["PnL"] < 0]
 
-    win_rate = (len(wins) / total_trades) * 100 if total_trades else 0
+    win_rate = (len(wins) / total_trades) * 100
     avg_win = wins["PnL"].mean() if not wins.empty else 0.0
     avg_loss = losses["PnL"].mean() if not losses.empty else 0.0
 
@@ -1129,32 +1475,32 @@ if st.session_state.history:
     c4.metric("Avg Loss (₹)", f"{avg_loss:.2f}")
 
     st.metric("📐 Expectancy (₹ / trade)", f"{expectancy:.2f}")
-else:
-    st.info("ℹ️ No trades yet — analytics will appear after first trade.")
 
+else:
+    st.info("ℹ️ No CLOSED trades yet — analytics will appear after exits.")
+    
 # =====================================================
 # 📈 STRATEGY-WISE PERFORMANCE
 # =====================================================
 st.subheader("📈 Strategy-wise PnL")
 
-if st.session_state.history:
+if not df_trades.empty:
     strat_df = (
-        df_trades.groupby("Strategy")["PnL"]
+        df_trades.groupby("Strategy", as_index=False)["PnL"]
         .sum()
-        .reset_index()
         .sort_values("PnL", ascending=False)
     )
 
-    st.dataframe(strat_df, use_container_width=True)
+    st.dataframe(strat_df, use_container_width=True, hide_index=True)
 else:
-    st.info("ℹ️ Strategy performance will appear after trades.")
+    st.info("ℹ️ Strategy performance will appear after trades are CLOSED.")
 
 # =====================================================
 # ⏱ TIME-OF-DAY PERFORMANCE
 # =====================================================
 st.subheader("⏱ Time-of-Day Performance")
 
-if st.session_state.history and "Entry Time" in df_trades.columns:
+if not df_trades.empty and "Entry Time" in df_trades.columns:
     df_trades["Hour"] = pd.to_datetime(
         df_trades["Entry Time"],
         format="%H:%M:%S",
@@ -1162,15 +1508,14 @@ if st.session_state.history and "Entry Time" in df_trades.columns:
     ).dt.hour
 
     hour_pnl = (
-        df_trades.groupby("Hour")["PnL"]
+        df_trades.groupby("Hour", as_index=False)["PnL"]
         .sum()
-        .reset_index()
         .rename(columns={"PnL": "Total PnL"})
     )
 
     st.dataframe(hour_pnl, use_container_width=True)
 else:
-    st.info("ℹ️ Time-based stats will appear after trades.")
+    st.info("ℹ️ Time-based stats will appear after trades are CLOSED.")
 
 # =====================================================
 # HOW TO USE
@@ -1188,10 +1533,14 @@ with st.expander("Click to read"):
 
 
 # =====================================================
-# AUTO REFRESH (LAST LINE ONLY)
+# AUTO REFRESH (NON-BLOCKING, STREAMLIT SAFE)
 # =====================================================
-now_ts = time.time()
+if "last_refresh" not in st.session_state:
+    st.session_state.last_refresh = time.time()
+
 REFRESH = LIVE_REFRESH if open_now else 20
+now_ts = time.time()
+
 if now_ts - st.session_state.last_refresh >= REFRESH:
     st.session_state.last_refresh = now_ts
     st.rerun()

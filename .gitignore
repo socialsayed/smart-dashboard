@@ -8,3 +8,10 @@ __pycache__/
 
 # OS
 .DS_Store
+
+
+# NSE cookies (local only)
+data/nse_cookies.json
+
+# Paper trade runtime data
+data/paper_trades/
