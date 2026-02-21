@@ -1,7 +1,6 @@
 # =====================================================
 # CONFIG — SINGLE SOURCE OF TRUTH
 # =====================================================
-
 import pytz
 
 # =====================================================
@@ -77,5 +76,19 @@ INDEX_MAP = {
         "SONACOMS", "SPANDANA", "STAR",
         "SUPREMEIND", "TATAELXSI", "TRIDENT",
         "VGUARD", "WELCORP"
-    ]
+    ],
+    
+    "BANKNIFTY": [
+    "HDFCBANK",
+    "ICICIBANK",
+    "SBIN",
+    "AXISBANK",
+    "KOTAKBANK",
+    "INDUSINDBK",
+    "AUBANK",
+    "BANDHANBNK",
+    "IDFCFIRSTB",
+    "PNB",
+    "FEDERALBNK",
+],
 }

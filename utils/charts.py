@@ -14,8 +14,8 @@ def add_vwap(df: pd.DataFrame):
 # =====================================================
 # ORB CALCULATION (PROTECTED)
 # =====================================================
-def calc_orb(df: pd.DataFrame, minutes=15):
-    candles = minutes // 3  # 3-minute candles
+def calc_orb(df: pd.DataFrame, minutes=15, interval_minutes=5):
+    candles = max(1, minutes // interval_minutes)
 
     if len(df) < candles:
         return None
@@ -73,7 +73,11 @@ def detect_orb_breakout(df: pd.DataFrame, orb: dict):
 # =====================================================
 # INTRADAY CHART WITH ORB BREAKOUT ARROWS
 # =====================================================
-def intraday_candlestick(df: pd.DataFrame, symbol: str):
+def intraday_candlestick(
+    df: pd.DataFrame,
+    symbol: str,
+    interval_label: str = "Intraday"
+):
     fig = go.Figure()
 
     # =========================
@@ -146,7 +150,6 @@ def intraday_candlestick(df: pd.DataFrame, symbol: str):
     # =========================
     orb = calc_orb(df)
     if orb:
-        # ORB High / Low lines
         fig.add_hline(
             y=orb["high"],
             line_dash="dash",
@@ -161,7 +164,6 @@ def intraday_candlestick(df: pd.DataFrame, symbol: str):
             annotation_text="ORB Low"
         )
 
-        # Detect breakouts
         signals = detect_orb_breakout(df, orb)
 
         for s in signals:
@@ -185,11 +187,17 @@ def intraday_candlestick(df: pd.DataFrame, symbol: str):
             )
 
     # =========================
-    # LAYOUT
+    # LAYOUT (FIXED)
     # =========================
     fig.update_layout(
-        title=f"{symbol} – Intraday (3m) | VWAP + ORB + Breakouts",
-        height=600,
+        title=dict(
+            text=f"{symbol} – {interval_label} | VWAP + ORB + Breakouts",
+            x=0.01,
+            y=0.93,              # 👈 PUSH TITLE DOWN
+            xanchor="left",
+            yanchor="top"
+        ),
+        height=620,
         xaxis=dict(domain=[0, 1]),
         yaxis=dict(title="Price", domain=[0.28, 1]),
         yaxis2=dict(
@@ -198,8 +206,18 @@ def intraday_candlestick(df: pd.DataFrame, symbol: str):
             showgrid=False
         ),
         xaxis_rangeslider_visible=False,
-        margin=dict(l=20, r=20, t=40, b=20),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+
+        # Extra top margin to avoid collision
+        margin=dict(l=20, r=20, t=110, b=20),
+
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=1.05,              # 👈 LEGEND ABOVE TITLE
+            xanchor="left",
+            x=0
+        ),
+
         hovermode="x unified"
     )
 

@@ -2,30 +2,46 @@
 # IMPORTS
 # =====================================================
 import time
-import streamlit as st
 import os
+import streamlit as st
 import pandas as pd
-from config import *
-from services.market_time import now_ist, market_status, countdown
+import config
+
+# =====================================================
+# SAFE REFRESH DEFAULT
+# =====================================================
+LIVE_REFRESH = config.LIVE_REFRESH
+
+# --- Market & Price ---
+from services.market_time import now_ist, market_status
 from services.prices import live_price
 from services.options import get_pcr
 from services.charts import get_intraday_data
+
+from logic.market_opportunity_scanner import run_market_opportunity_scanner
+
+# --- Data & Logic ---
 from data.watchlist import daily_watchlist
 from logic.levels import calc_levels
 from logic.risk import risk_ok
-from logic.decision import trade_decision
-from utils.cache import init_state
-from utils.charts import (
-    intraday_candlestick,
-    add_vwap
+from logic.decision import (
+    trade_decision,
+    calculate_trade_confidence,
+    confidence_label
 )
 
+# --- Options (NIFTY) ---
 from services.nifty_options import (
     get_nifty_option_chain,
     extract_atm_region,
     calculate_pcr,
     options_sentiment
 )
+
+# --- Utils ---
+from utils.cache import init_state
+from utils.charts import intraday_candlestick, add_vwap
+
 
 # =====================================================
 # 📘 SECTION HELP TOOLTIP TEXT
@@ -224,30 +240,41 @@ def get_cookie_status():
 
 # =====================================================
 # 🔍 SANITY CHECK (INTRADAY DATA)
+# FIXED: interval=None treated as cached / unchanged
+# SIDB v2.4.1 SAFE
 # =====================================================
 def sanity_check_intraday(df, interval, symbol):
+    # --- Basic availability ---
     if df is None or df.empty:
         st.warning(f"⚠️ {symbol}: Intraday data unavailable")
         return False
 
+    # --- Required columns ---
     required = {"Open", "High", "Low", "Close"}
     missing = required - set(df.columns)
     if missing:
         st.warning(f"⚠️ Missing OHLC columns: {missing}")
         return False
 
+    # --- Time ordering ---
     if not hasattr(df.index, "is_monotonic_increasing") or not df.index.is_monotonic_increasing:
         st.warning("⚠️ Intraday candles not time-sorted")
 
+    # --- NaN density ---
     if df[list(required)].isna().mean().mean() > 0.25:
         st.warning("⚠️ High NaN density in intraday candles")
 
+    # --- Live candle completeness ---
     if df.iloc[-1][list(required)].isna().any():
         st.warning("⚠️ Latest candle incomplete (live candle)")
 
-    allowed_intervals = {"1m", "2m", "3m", "5m", "15m", "30m", "60m"}
-    if interval not in allowed_intervals:
-        st.warning(f"⚠️ Unsupported interval: {interval}")
+    # --- Interval validation ---
+    # IMPORTANT:
+    # interval = None is VALID in SIDB (cached / unchanged interval)
+    if interval is not None:
+        allowed_intervals = {"1m", "2m", "3m", "5m", "15m", "30m", "60m"}
+        if interval not in allowed_intervals:
+            st.warning(f"⚠️ Unsupported interval: {interval}")
 
     return True
 
@@ -355,11 +382,6 @@ def cached_atm_analysis(df, spot):
     return atm_df, atm, pcr_atm, ce_oi, pe_oi
 
 
-@st.cache_data(ttl=5)
-def cached_live_price(symbol):
-    return live_price(symbol)
-
-
 @st.cache_data(ttl=30)
 def cached_intraday_data(symbol):
     return get_intraday_data(symbol)
@@ -377,7 +399,79 @@ def cached_nifty_option_chain():
 
 @st.cache_data(ttl=30)
 def cached_add_vwap(df):
+    """
+    Cached VWAP calculation to avoid recomputation flicker.
+    """
     return add_vwap(df)
+    
+@st.cache_data(ttl=3600)  # cache for the trading day
+def cached_daily_watchlist(symbols, trade_date):
+    return daily_watchlist(symbols, trade_date)
+    
+# =====================================================
+# ⚡ FAST LIVE PRICE ENGINE (PER-SYMBOL, NON-BLOCKING)
+# =====================================================
+def get_live_price_fast(symbol, min_interval=1.5):
+    """
+    Ultra-fast price fetch with in-memory throttle.
+    Prevents full app reruns.
+    """
+    key = f"_fast_price_{symbol}"
+
+    if key not in st.session_state:
+        st.session_state[key] = {
+            "ts": 0,
+            "price": None,
+            "src": None
+        }
+
+    slot = st.session_state[key]
+    now = time.time()
+
+    if now - slot["ts"] >= min_interval:
+        try:
+            slot["price"], slot["src"] = live_price(symbol)
+        except Exception:
+            pass
+        slot["ts"] = now
+
+    return slot["price"], slot["src"]
+
+
+# =====================================================
+# 📊 INDEX PCR → STATUS + EXPLANATION + ACTION
+# =====================================================
+def index_pcr_status_action(pcr: float):
+    if pcr is None:
+        return (
+            "DATA UNAVAILABLE",
+            "warning",
+            "Index PCR data is not available right now.",
+            "Avoid index bias. Trade only with price action confirmation."
+        )
+
+    if pcr < 0.9:
+        return (
+            "BEARISH",
+            "error",
+            "Low PCR indicates heavy CALL writing. Market expects resistance or downside.",
+            "Avoid BUY trades. Prefer shorts or wait for strong bullish confirmation."
+        )
+
+    if 0.9 <= pcr <= 1.1:
+        return (
+            "NEUTRAL / RANGE",
+            "info",
+            "Balanced PUT and CALL activity. No strong directional conviction.",
+            "Trade only near support/resistance or VWAP. Avoid aggressive entries."
+        )
+
+    return (
+        "BULLISH",
+        "success",
+        "High PCR shows strong PUT writing. Institutions expect the index to hold or rise.",
+        "Favor BUY trades. Avoid counter-trend SELL setups."
+    )
 
 
 
@@ -385,43 +479,115 @@ def cached_add_vwap(df):
 # PAGE CONFIG
 # =====================================================
 st.set_page_config(
-    page_title=APP_TITLE,
+    page_title=config.APP_TITLE,
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
 # =====================================================
-# GLOBAL STYLE
+# 🧩 THEME PATCH — FIX TOP GAP / HEADER OVERLAY
 # =====================================================
-st.info("📱 On mobile: tap ☰ (top-left) to open sidebar controls")
-st.markdown("""
-<style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
+st.markdown(
+    """
+    <style>
+    /* ===============================
+       REMOVE TOP WHITE/GREY STRIP
+       =============================== */
 
-/* Keep header + toolbar visible for mobile ☰ */
-[data-testid="stHeader"] {
-    visibility: visible;
+    /* Root app container */
+    [data-testid="stApp"] {
+        background: transparent !important;
+    }
+
+    /* Header container (this causes the block) */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        height: 0rem !important;
+    }
+
+    /* Prevent header from reserving space */
+    header[data-testid="stHeader"] > div {
+        display: none !important;
+    }
+
+    /* Ensure main content starts at top */
+    [data-testid="stMainBlockContainer"] {
+        padding-top: 0.5rem !important;
+        margin-top: 0 !important;
+    }
+
+    /* Safety: ensure nothing overlays content */
+    section[data-testid="stAppViewContainer"] {
+        overflow: visible !important;
+    }
+    
+    /* ===============================
+   LIVE PULSE INDICATOR
+   =============================== */
+.live-pulse {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 1.05rem;
+    font-weight: 600;
 }
 
-/* Optional: hide decoration bar */
-[data-testid="stDecoration"] {
-    display: none;
+.live-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #00c853;
+    border-radius: 50%;
+    animation: livePulse 1.2s infinite ease-in-out;
 }
-</style>
-""", unsafe_allow_html=True)
 
-
+@keyframes livePulse {
+    0%   { transform: scale(0.8); opacity: 0.4; }
+    50%  { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(0.8); opacity: 0.4; }
+}
+    
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 # =====================================================
 # DISCLAIMER
 # =====================================================
 with st.expander("⚠️ IMPORTANT DISCLAIMER", expanded=False):
     st.markdown("""
-This dashboard is for **market analysis and educational purposes only**.  
-It does **NOT execute trades**, does **NOT provide investment advice**,  
-and does **NOT guarantee returns**.
+### 📌 Regulatory Disclosure (SEBI)
 
-Use this tool for structured decision-making, not impulse trading.
+This dashboard is a *market analytics and educational tool only*.
+
+* It does *NOT* provide investment advice  
+* It does *NOT* recommend buying or selling any security  
+* It does *NOT* provide targets, stop-losses, or position sizing  
+* It does *NOT* execute real trades  
+* It is *NOT registered with SEBI* as an Investment Advisor  
+
+All data, indicators, signals, and confidence scores are provided *solely for educational and analytical purposes*.
+
+---
+
+### 🧠 User Responsibility
+
+Any trading decisions taken using insights from this dashboard are made *entirely at the user’s discretion and risk*.
+
+The developer shall *not be liable* for:
+* Trading losses  
+* Data inaccuracies  
+* Technical delays  
+* Market volatility  
+
+---
+
+### 📘 Intended Audience
+
+This tool is intended for:
+* Learning market structure  
+* Practicing discipline via paper trading  
+* Understanding price, VWAP, ORB, and sentiment  
+
+It is *NOT a substitute* for professional financial advice.
 """)
 
 # =====================================================
@@ -431,12 +597,13 @@ init_state({
     "pnl": 0.0,
     "trades": 0,
     "history": [],
-    "live_cache": {},
     "alert_state": set(),
     "last_options_bias": None,
     "last_intraday_df": None,
     "levels": {},
-    "last_refresh": time.time()
+    "last_refresh": time.time(),
+    "last_price_metric": None,
+    "prev_close": None,
 })
 
 # Load persisted trades for today (OPEN + CLOSED)
@@ -452,11 +619,165 @@ if not st.session_state.history:
 # HEADER
 # =====================================================
 st.title("📊 Smart Intraday Trading Dashboard")
-st.caption(
-    "A professional intraday decision-support system designed to help traders "
-    "analyze price structure, market sentiment, and risk — before taking trades."
+
+st.warning(
+    "⚠️ This dashboard is for *market analysis and educational purposes only*. "
+    "It does *NOT* provide investment advice, does *NOT* execute real trades, "
+    "and is *NOT registered with SEBI*."
 )
 
+# =====================================================
+# 🚨 IMPORTANT REGULATORY & USAGE DISCLOSURE (PROMINENT)
+# =====================================================
+
+st.markdown(
+    """
+    <div style="
+        background-color: #f5f7fa;
+        border-left: 6px solid #455a64;
+        padding: 14px 16px;
+        margin: 12px 0;
+        border-radius: 8px;
+        font-size: 1.05rem;
+        line-height: 1.5;
+    ">
+
+    <p><strong>
+    ⚠️ This dashboard is for <u>market analysis and educational purposes only</u>.
+    It does <span style="color:#d32f2f;">NOT provide investment advice</span>,
+    does <span style="color:#d32f2f;">NOT execute real trades</span>,
+    and is <span style="color:#d32f2f;">NOT registered with SEBI</span>.
+    </strong></p>
+
+    <p><strong>
+    📊 A professional intraday <u>decision-support system</u> designed to help traders
+    analyze <u>price structure, market sentiment, and risk</u> — <u>before taking trades</u>.
+    </strong></p>
+
+    <p><strong>
+    ℹ️ Scanner results indicate <u>market conditions only</u>.
+    They are <span style="color:#d32f2f;">NOT buy / sell recommendations</span>.
+    </strong></p>
+
+    <p><strong>
+    ℹ️ Trade status reflects <u>rule validation only</u> and is
+    <span style="color:#d32f2f;">NOT a recommendation to trade</span>.
+    </strong></p>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# =====================================================
+# 📜 LEGAL / ABOUT
+# =====================================================
+
+tabs = st.tabs(["📊 Dashboard", "📜 Legal / About"])
+
+with tabs[1]:
+    st.markdown("## 📜 Legal & Regulatory Disclosure")
+
+    st.markdown("""
+### 🔒 Regulatory Status (SEBI)
+
+This application is a *market analytics and educational dashboard*.
+
+* It is *NOT registered with SEBI* as an Investment Advisor (IA)  
+* It does *NOT provide investment advice*  
+* It does *NOT recommend buying or selling* any securities  
+* It does *NOT provide targets, stop-losses, or position sizing*  
+* It does *NOT execute real trades*  
+
+All outputs generated by this dashboard are *informational and educational only*.
+
+---
+
+### 📊 Nature of the Tool
+
+This dashboard provides:
+* Market structure analysis  
+* Price action visualization  
+* VWAP and ORB context  
+* Options sentiment (PCR & OI)  
+* Risk rule validation  
+* Paper trading simulation  
+
+It does *NOT*:
+* Predict market movements  
+* Guarantee returns  
+* Replace professional financial advice  
+
+---
+
+### 🧠 About Scanner & Trade Decision Engine
+
+* Scanner outputs indicate *market conditions only*  
+* “BUY / WATCH / AVOID” labels represent *analytical classification*, not recommendations  
+* “TRADE ALLOWED” means *rules are satisfied*, not that a trade should be taken  
+
+Final trade decisions are made *solely by the user*.
+
+---
+
+### 🧪 Paper Trading Disclaimer
+
+* All trades executed inside this dashboard are *simulated (paper trades)*  
+* No real money is involved  
+* PnL shown is *hypothetical*  
+* Results do *NOT reflect real trading performance*  
+
+Paper trading is intended for:
+* Practice  
+* Discipline building  
+* Strategy evaluation  
+
+---
+
+### ⚠️ Risk Disclosure
+
+Trading and investing in financial markets involves *substantial risk*, including loss of capital.
+
+Market conditions can change rapidly due to:
+* Volatility  
+* News events  
+* Liquidity conditions  
+* Technical issues  
+
+The developer assumes *no responsibility* for:
+* Financial losses  
+* Missed opportunities  
+* Data delays or inaccuracies  
+* System downtime  
+
+---
+
+### 👤 User Responsibility
+
+By using this dashboard, you acknowledge that:
+* You are responsible for your own trading decisions  
+* You understand the risks involved in trading  
+* You are using this tool for *educational purposes only*  
+
+If you require personalized investment advice, consult a *SEBI-registered Investment Advisor*.
+
+---
+
+### 📘 Intended Audience
+
+This tool is intended for:
+* Learning market behavior  
+* Understanding price and sentiment interaction  
+* Practicing rule-based discipline  
+
+It is *NOT intended for portfolio management or advisory services*.
+""")
+
+    st.divider()
+
+    st.caption(
+        "© Smart Intraday Trading Dashboard — Educational & Analytical Use Only"
+    )
 
 # =====================================================
 # SIDEBAR – MARKET SELECTION
@@ -466,8 +787,9 @@ st.sidebar.header(
     help="Select index and stock. All data updates automatically."
 )
 
-index = st.sidebar.selectbox("Select Index", INDEX_MAP.keys())
-stock = st.sidebar.selectbox("Select Stock", INDEX_MAP[index])
+# AFTER ✅
+index = st.sidebar.selectbox("Select Index", config.INDEX_MAP.keys())
+stock = st.sidebar.selectbox("Select Stock", config.INDEX_MAP[index])
 
 
 # =====================================================
@@ -479,12 +801,12 @@ st.sidebar.header(
 )
 
 max_trades = st.sidebar.number_input(
-    "Max Trades / Day", 1, 100, 3,
+    "Max Trades / Day", 1, 1000, 1000,
     help="Maximum intraday trades allowed."
 )
 
 max_loss = st.sidebar.number_input(
-    "Max Loss / Day (₹)", 1000, 50000, 5000,
+    "Max Loss / Day (₹)", 1000, 500000, 5000,
     help="Trading stops once this loss is breached."
 )
 
@@ -654,6 +976,66 @@ Process > Outcome
 
 
 # =====================================================
+# 🔎 MARKET OPPORTUNITY SCANNER
+# =====================================================
+
+st.sidebar.markdown("### 🔎 Market Scanner")
+
+scanner_mode = st.sidebar.radio(
+    "Scan Universe",
+    options=[
+        "NIFTY 50",
+        "BANKNIFTY Stocks",
+        "Daily Watchlist",
+        "Manual Stock",
+    ],
+    index=0,
+)
+
+manual_symbol = None
+if scanner_mode == "Manual Stock":
+    manual_symbol = (
+        st.sidebar.text_input(
+            "Enter Stock Symbol",
+            placeholder="e.g. TCS",
+        )
+        .strip()
+        .upper()
+    )
+
+    if manual_symbol == "":
+        manual_symbol = None
+        
+    st.sidebar.caption(
+        "ℹ️ Manual Stock scanning is **not live yet**. "
+        "This option is for **structure viewing only**."
+    )
+    
+# =====================================================
+# 🔧 SCANNER SYMBOL SELECTION (FIXED)
+# =====================================================
+
+scan_symbols = []
+
+if scanner_mode == "NIFTY 50":
+    scan_symbols = config.INDEX_MAP["NIFTY 50"]
+
+elif scanner_mode == "BANKNIFTY Stocks":
+    scan_symbols = config.INDEX_MAP.get("BANKNIFTY", [])
+
+elif scanner_mode == "Daily Watchlist":
+    scan_symbols = cached_daily_watchlist(
+    config.INDEX_MAP[index],
+    now_ist().date()
+)
+
+elif scanner_mode == "Manual Stock":
+    if manual_symbol:
+        scan_symbols = [manual_symbol]
+    else:
+        scan_symbols = []
+        
+# =====================================================
 # MARKET STATUS
 # =====================================================
 st.subheader(
@@ -674,6 +1056,60 @@ if not open_now and next_open:
 
 st.divider()
 
+from streamlit_autorefresh import st_autorefresh
+
+FAST_REFRESH_MS = 1500 if open_now else 10000
+
+st_autorefresh(
+    interval=FAST_REFRESH_MS,
+    key="price_only_refresh",
+    limit=None
+)
+
+if "alert_state" not in st.session_state:
+    st.session_state.alert_state = set()
+    
+# =====================================================
+# 🔎 MARKET OPPORTUNITY SCANNER OUTPUT
+# =====================================================
+
+
+
+if open_now and scan_symbols:
+    st.subheader("🔎 Market Opportunities")
+
+    scanner_results = run_market_opportunity_scanner(scan_symbols)
+
+    if not scanner_results:
+        st.info("ℹ️ No valid trade setups found for the selected stock.")
+    else:
+        for res in scanner_results:
+            key = f"SCANNER_{res['symbol']}_{res['status']}"
+            if key in st.session_state.alert_state:
+                continue
+            st.session_state.alert_state.add(key)
+
+            symbol = res["symbol"]
+            status = res["status"]
+            confidence = res["confidence"]
+            reasons = res["reasons"]
+
+            if status == "BUY":
+                st.success(
+                    f"🟢 BUY SETUP: {symbol} | Confidence: {confidence}\n"
+                    + " • " + "\n • ".join(reasons)
+                )
+            elif status == "WATCH":
+                st.warning(
+                    f"🟡 WATCH: {symbol} | Confidence: {confidence}\n"
+                    + " • " + "\n • ".join(reasons)
+                )
+            else:
+                st.error(
+                    f"🔴 AVOID: {symbol} | Confidence: {confidence}\n"
+                    + " • " + "\n • ".join(reasons)
+                )
+                
 # =====================================================
 # 🔄 LIVE REFRESH STATUS
 # =====================================================
@@ -693,38 +1129,198 @@ with c2:
     )
 
 # =====================================================
-# LIVE PRICE
+# LIVE PRICE (TERMINAL-GRADE)
 # =====================================================
-st.subheader(
-    "📡 Live Price",
-    help=SECTION_HELP["live_price"]
-)
+# Live Price header (LIVE only when market is OPEN)
+if open_now:
+    st.markdown(
+        """
+        <div class="live-pulse">
+            📡 Live Price
+            <span class="live-dot"></span>
+            <span style="color:#00c853;">LIVE</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.subheader(
+        "📡 Live Price",
+        help=SECTION_HELP["live_price"]
+    )
 
-# Fetch once per run
-price, src = cached_live_price(stock)
+price, src = get_live_price_fast(stock)
 
-# Store last valid price
-if price is not None:
-    st.session_state.live_cache[stock] = (price, src)
+# Initialize previous close ONCE
+if st.session_state.prev_close is None and price is not None:
+    st.session_state.prev_close = price
 
-price, src = st.session_state.live_cache.get(stock, (None, None))
-last_price = st.session_state.get("last_price_metric")
-
+# Delta vs TODAY OPEN (terminal-grade, correct)
 delta = None
-if last_price is not None and price is not None:
-    delta = round(price - last_price, 2)
+open_price = None
+
+df_intraday = st.session_state.get("last_intraday_df")
+
+# Prefer true intraday OPEN
+if df_intraday is not None and not df_intraday.empty:
+    open_price = df_intraday["Open"].iloc[0]
+
+# Fallback ONLY if intraday data not ready yet
+elif st.session_state.prev_close is not None:
+    open_price = st.session_state.prev_close
+
+if price is not None and open_price is not None:
+    delta = round(price - open_price, 2)
 
 st.metric(
     stock,
-    price if price is not None else "—",
-    delta=f"{delta:+}" if delta is not None else None,
+    f"{price:.2f}" if price is not None else "—",
+    delta=f"{delta:+.2f}" if delta is not None else None,
     help=f"Source: {src}"
 )
 
+# 🔥 UPDATE LAST PRICE AFTER UI RENDER
 if price is not None:
     st.session_state.last_price_metric = price
 
 st.divider()
+
+# =====================================================
+# 📈 LIVE PRICE CONTEXT — % vs OPEN + DAY RANGE BAR
+# =====================================================
+
+df_intraday = st.session_state.get("last_intraday_df")
+
+open_price = high_price = low_price = None
+pct_change = None
+range_pos = None
+
+if df_intraday is not None and not df_intraday.empty and price is not None:
+    open_price = df_intraday["Open"].iloc[0]
+    high_price = df_intraday["High"].max()
+    low_price = df_intraday["Low"].min()
+
+    # % change vs OPEN
+    pct_change = round(((price - open_price) / open_price) * 100, 2)
+
+    # Day range position (0 → 1)
+    if high_price > low_price:
+        range_pos = (price - low_price) / (high_price - low_price)
+
+# ---------- Color intensity based on distance from OPEN ----------
+delta_color = "#888888"  # neutral fallback
+
+if open_price is not None and price is not None:
+    distance = abs(price - open_price) / open_price
+
+    if price >= open_price:
+        delta_color = (
+            "#1b5e20" if distance > 0.015 else   # strong green
+            "#2e7d32" if distance > 0.008 else   # medium green
+            "#66bb6a"                            # light green
+        )
+    else:
+        delta_color = (
+            "#b71c1c" if distance > 0.015 else   # strong red
+            "#c62828" if distance > 0.008 else   # medium red
+            "#ef5350"                            # light red
+        )
+
+# ---------- % CHANGE DISPLAY (UNDER DELTA) ----------
+if pct_change is not None:
+    st.markdown(
+        f"""
+        <div style="
+            font-size:0.95rem;
+            color:{delta_color};
+            margin-top:-6px;
+            margin-bottom:4px;
+        ">
+            ({pct_change:+.2f}% vs Open)
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# ---------- DAY RANGE PROGRESS BAR ----------
+if range_pos is not None:
+    st.progress(
+        min(max(range_pos, 0.0), 1.0),
+        text=(
+            f"Day Range | "
+            f"Low {low_price:.2f}  "
+            f"Open {open_price:.2f}  "
+            f"High {high_price:.2f}"
+        )
+    )
+
+# =====================================================
+# 📌 LIVE SNAPSHOT — TODAY RANGE + FUNDAMENTALS
+# =====================================================
+
+# ---------- TODAY OPEN / HIGH / LOW (from intraday data) ----------
+today_open = today_high = today_low = None
+
+df_intraday = st.session_state.get("last_intraday_df")
+
+if df_intraday is not None and not df_intraday.empty:
+    today_open = df_intraday["Open"].iloc[0]
+    today_high = df_intraday["High"].max()
+    today_low = df_intraday["Low"].min()
+
+c1, c2, c3 = st.columns(3)
+
+c1.metric("Open", f"{today_open:.2f}" if today_open else "—")
+c2.metric("High (Today)", f"{today_high:.2f}" if today_high else "—")
+c3.metric("Low (Today)", f"{today_low:.2f}" if today_low else "—")
+
+st.divider()
+
+# ---------- FUNDAMENTALS (SLOW-CHANGING, SAFE) ----------
+# NOTE:
+# Replace the placeholder fetch below with your preferred source
+# (Yahoo Finance, NSE, Screener API, etc.)
+
+@st.cache_data(ttl=3600)
+def get_fundamentals(symbol):
+    """
+    Expected return dict keys:
+    market_cap, pe_ratio, dividend_yield, quarterly_dividend
+    """
+    return {
+        "market_cap": None,
+        "pe_ratio": None,
+        "dividend_yield": None,
+        "quarterly_dividend": None,
+    }
+
+fundamentals = get_fundamentals(stock)
+
+c1, c2, c3, c4 = st.columns(4)
+
+c1.metric(
+    "Market Cap",
+    f"₹ {fundamentals['market_cap']:,} Cr"
+    if fundamentals["market_cap"] else "—"
+)
+
+c2.metric(
+    "P/E Ratio",
+    f"{fundamentals['pe_ratio']:.2f}"
+    if fundamentals["pe_ratio"] else "—"
+)
+
+c3.metric(
+    "Dividend %",
+    f"{fundamentals['dividend_yield']:.2f}%"
+    if fundamentals["dividend_yield"] else "—"
+)
+
+c4.metric(
+    "Qtrly Dividend",
+    f"₹ {fundamentals['quarterly_dividend']:.2f}"
+    if fundamentals["quarterly_dividend"] else "—"
+)
 
 # =====================================================
 # TOP METRICS
@@ -752,8 +1348,15 @@ st.divider()
 # INTRADAY CHART
 # =====================================================
 
-result = cached_intraday_data(stock)
+if "last_chart_ts" not in st.session_state:
+    st.session_state.last_chart_ts = 0
 
+if time.time() - st.session_state.last_chart_ts > 25:
+    result = cached_intraday_data(stock)
+    st.session_state.last_chart_ts = time.time()
+else:
+    result = (st.session_state.last_intraday_df, None)
+    
 if not isinstance(result, tuple) or len(result) != 2:
     df, interval = None, None
 else:
@@ -765,26 +1368,49 @@ interval_label = (
     else "Intraday"
 )
 
-st.subheader(
-    f"📊 Intraday Chart ({interval_label})",
-    help=SECTION_HELP["intraday_chart"]
-)
+# Intraday Chart header (LIVE only when market is OPEN)
+if open_now:
+    st.markdown(
+        f"""
+        <div class="live-pulse">
+            📊 Intraday Chart ({interval_label})
+            <span class="live-dot"></span>
+            <span style="color:#00c853;">LIVE</span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.subheader(
+        f"📊 Intraday Chart ({interval_label})",
+        help=SECTION_HELP["intraday_chart"]
+    )
 
 if sanity_check_intraday(df, interval, stock):
-    df = add_vwap(df)
+    df = cached_add_vwap(df)
     st.session_state.last_intraday_df = df
 else:
     df = st.session_state.last_intraday_df
     if df is not None:
         st.info("ℹ️ Showing last stable intraday data")
 
-# --- Plot chart (FIXED: removed support/resistance parameters) ---
-if df is not None and not df.empty:
-    fig = intraday_candlestick(df, stock)
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.warning("⚠️ Intraday data unavailable at the moment.")
+# ============================================================
+# SIDB v2.4.1 — Stable Intraday Chart Render (NO FLICKER)
+# ============================================================
 
+# Case 1: First-ever load → show placeholder
+if st.session_state.last_intraday_df is None:
+    st.info("⏳ Waiting for intraday data…", icon="⏳")
+
+# Case 2: We have a stable chart → ALWAYS show it
+else:
+    fig = intraday_candlestick(
+        st.session_state.last_intraday_df,
+        stock,
+        interval_label
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    
 # =====================================================
 # WHY THIS SIGNAL?
 # =====================================================
@@ -827,15 +1453,19 @@ st.divider()
 st.subheader("🎯 Daily Watchlist", help="Auto-generated focus list for the day.")
 
 today = now_ist().date()
-watchlist = daily_watchlist(INDEX_MAP[index], today)
-
+watchlist = cached_daily_watchlist(
+    config.INDEX_MAP[index],
+    today
+)
 rows = []
 for sym in watchlist:
-    if sym not in st.session_state.live_cache:
-        p, sc = cached_live_price(sym)
-        st.session_state.live_cache[sym] = (p, sc)
-    p, sc = st.session_state.live_cache[sym]
-    rows.append({"Stock": sym, "Live Price": p if p else "—", "Source": sc})
+    p, sc = get_live_price_fast(sym)
+
+    rows.append({
+        "Stock": sym,
+        "Live Price": f"{p:.2f}" if p is not None else "—",
+        "Source": sc
+    })
 
 st.dataframe(rows, use_container_width=True)
 
@@ -950,19 +1580,41 @@ st.subheader(
     help=SECTION_HELP["options_pcr"]
 )
 
-index_pcr = cached_index_pcr()
+if "last_pcr_ts" not in st.session_state:
+    st.session_state.last_pcr_ts = 0
 
-if index_pcr is not None:
-    st.metric("Put–Call Ratio (Index)", index_pcr)
-
-    if index_pcr > 1.1:
-        st.success("🟢 Index Options Bias: Bullish")
-    elif index_pcr < 0.9:
-        st.error("🔴 Index Options Bias: Bearish")
-    else:
-        st.info("⚪ Index Options Bias: Neutral / Range")
+if time.time() - st.session_state.last_pcr_ts > 30:
+    index_pcr = cached_index_pcr()
+    st.session_state.last_pcr_ts = time.time()
 else:
-    st.warning("⚠️ Index PCR data unavailable at the moment.")
+    index_pcr = st.session_state.get("cached_index_pcr")
+
+st.session_state.cached_index_pcr = index_pcr
+
+status, color, explanation, action = index_pcr_status_action(index_pcr)
+
+# --- PCR Metric ---
+st.metric(
+    "Put–Call Ratio (Index)",
+    f"{index_pcr:.2f}" if index_pcr is not None else "—"
+)
+
+# --- Status ---
+if color == "success":
+    st.success(f"🟢 Index Options Bias: {status}")
+elif color == "error":
+    st.error(f"🔴 Index Options Bias: {status}")
+elif color == "warning":
+    st.warning(f"⚠️ Index Options Bias: {status}")
+else:
+    st.info(f"🔵 Index Options Bias: {status}")
+
+# --- Explanation + Action (THIS IS WHAT YOU WANTED) ---
+st.markdown("**📌 What this means:**")
+st.write(explanation)
+
+st.markdown("**🎯 Suggested Action:**")
+st.write(action)
 
 st.divider()
 
@@ -1161,6 +1813,10 @@ if new_options_alerts:
     for a in new_options_alerts:
         st.warning(a)
 
+st.caption(
+    "ℹ️ Trade status reflects *rule validation*, not a recommendation to trade."
+)
+
 # =====================================================
 # TRADE DECISION
 # =====================================================
@@ -1168,6 +1824,10 @@ st.subheader(
     "📈 Trade Decision Engine",
     help=SECTION_HELP["trade_decision"]
 )
+
+# -------------------------------
+# Risk Status
+# -------------------------------
 risk_status = risk_ok(
     st.session_state.trades,
     max_trades,
@@ -1175,13 +1835,69 @@ risk_status = risk_ok(
     max_loss
 )
 
+# ================================
+# Trade Confidence (Phase 2)
+# ================================
+confidence_score = None
+confidence_reasons = {}
+
+if price is not None and st.session_state.last_intraday_df is not None:
+    df = st.session_state.last_intraday_df
+
+    # -------------------------------
+    # VWAP SLOPE (normalized, last 5 candles)
+    # -------------------------------
+    vwap_series = df["VWAP"].tail(5)
+
+    if len(vwap_series) >= 2:
+        raw_slope = vwap_series.iloc[-1] - vwap_series.iloc[0]
+        vwap_slope = raw_slope / df["VWAP"].iloc[-1]  # normalize
+    else:
+        vwap_slope = 0
+
+    # -------------------------------
+    # TREND STRENGTH (robust)
+    # -------------------------------
+    highs = df["High"].tail(5)
+    lows = df["Low"].tail(5)
+
+    higher_highs = sum(highs.diff().dropna() > 0)
+    higher_lows = sum(lows.diff().dropna() > 0)
+
+    if higher_highs >= 3 and higher_lows >= 3:
+        trend_alignment = "STRONG"
+    elif higher_highs >= 2:
+        trend_alignment = "MILD"
+    else:
+        trend_alignment = "NONE"
+
+    direction = "BUY" if options_bias != "BEARISH" else "SELL"
+
+    confidence_score, confidence_reasons = calculate_trade_confidence({
+        "price": price,
+        "vwap": df["VWAP"].iloc[-1],
+        "vwap_slope": vwap_slope,
+        "orb_signal": (
+            "CONFIRMED"
+            if price > levels.get("orb_high", float("inf"))
+            else "NONE"
+        ),
+        "trend_alignment": trend_alignment,
+        "pcr": index_pcr,
+        "direction": direction
+    })
+
+# -------------------------------
+# Final Trade Gate
+# -------------------------------
 allowed, reason = trade_decision(
     open_now,
     risk_status,
     index_pcr,
     price,
     levels.get("resistance", 0),
-    options_bias=options_bias
+    options_bias=options_bias,
+    confidence_score=confidence_score
 )
 
 # =====================================================
@@ -1189,11 +1905,9 @@ allowed, reason = trade_decision(
 # =====================================================
 discipline_warnings = []
 
-# Overtrading warning
 if st.session_state.trades >= max_trades:
     discipline_warnings.append("⚠ Max trades reached — overtrading risk.")
 
-# Revenge trading warning (3 consecutive losses)
 if st.session_state.history and len(st.session_state.history) >= 3:
     last_3 = pd.DataFrame(st.session_state.history).tail(3)
     if (last_3["PnL"] < 0).all():
@@ -1205,12 +1919,41 @@ for w in discipline_warnings:
     st.warning(w)
 
 
+
+
+# -------------------------------
+# Trade Status UI
+# -------------------------------
 if allowed:
-    st.markdown("<div class='trade-allowed'>✅ TRADE ALLOWED</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='trade-allowed'>✅ TRADE CONDITION SATISFIED</div>",
+        unsafe_allow_html=True
+    )
 else:
-    st.markdown(f"<div class='trade-blocked'>🚫 TRADE BLOCKED<br>{reason}</div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div class='trade-blocked'>🚫 TRADE BLOCKED<br>{reason}</div>",
+        unsafe_allow_html=True
+    )
+
+# ================================
+# 🎯 Trade Confidence (Display)
+# ================================
+if confidence_score is not None:
+    st.markdown(f"#### 🎯 Trade Confidence: {confidence_score}/100")
+
+    # 🔥 Visual confidence bar (ADD HERE)
+    st.progress(confidence_score / 100)
+
+    st.markdown(
+        f"**Confidence Level:** {confidence_label(confidence_score)}"
+    )
+
+    with st.expander("Why this trade?"):
+        for k, v in confidence_reasons.items():
+            st.write(f"- **{k}**: {v}")
 
 st.divider()
+
 
 # =====================================================
 # 🧪 PAPER TRADE SIMULATOR (EXECUTION CONTROLS)
@@ -1532,15 +2275,3 @@ with st.expander("Click to read"):
 """)
 
 
-# =====================================================
-# AUTO REFRESH (NON-BLOCKING, STREAMLIT SAFE)
-# =====================================================
-if "last_refresh" not in st.session_state:
-    st.session_state.last_refresh = time.time()
-
-REFRESH = LIVE_REFRESH if open_now else 20
-now_ts = time.time()
-
-if now_ts - st.session_state.last_refresh >= REFRESH:
-    st.session_state.last_refresh = now_ts
-    st.rerun()

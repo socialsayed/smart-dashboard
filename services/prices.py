@@ -28,3 +28,9 @@ def live_price(symbol):
     if p:
         return p, src
     return yahoo_price(symbol)
+
+# --------------------------------------------------
+# BACKWARD COMPATIBILITY ALIAS
+# --------------------------------------------------
+def get_live_price(symbol):
+    return live_price(symbol)[0]

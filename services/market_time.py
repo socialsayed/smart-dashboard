@@ -32,3 +32,18 @@ def countdown(target_time):
     hours, remainder = divmod(int(delta.total_seconds()), 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+from datetime import time
+
+def get_time_quality(now_time):
+    """
+    Returns (score, label) for confidence calculation
+    """
+    if now_time < time(9, 25):
+        return 4, "Market open volatility"
+    elif time(9, 25) <= now_time <= time(14, 45):
+        return 10, "Optimal trading window"
+    elif time(14, 45) < now_time <= time(15, 15):
+        return 6, "Late session – reduced edge"
+    else:
+        return 0, "Market closing – no new trades"

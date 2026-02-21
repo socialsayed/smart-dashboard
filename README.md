@@ -1,12 +1,3 @@
-## Application Flow (Color-Coded)
-
-🟦 UI  
-🟩 Logic  
-🟧 Data  
-
-```mermaid
-(paste diagram here)
-
 flowchart TD
     %% ---------- UI ----------
     A([START]):::ui --> B[Initialize Streamlit App]:::ui
@@ -50,12 +41,22 @@ flowchart TD
     P -->|Trade Allowed| Q[Show Trade Allowed Banner]:::ui
     P -->|Trade Blocked| R[Show Trade Blocked Reason]:::ui
 
+    %% ---------- SCANNER (PARALLEL, NON-BLOCKING) ----------
+    H -->|Market Open| S1[Run Market Opportunity Scanner]:::logic
+    S1 --> S2[Loop Through Symbol Universe]:::logic
+    S2 --> S3[Reuse SAME Indicators<br/>VWAP • ORB • Trend • PCR]:::logic
+    S3 --> S4[Reuse SAME Trade Decision Engine]:::logic
+    S4 --> S5[Emit BUY / WATCH / AVOID Alerts]:::ui
+
     %% ---------- UI ----------
-    Q --> S[Render Trade History & PnL]:::ui
-    R --> S
-    S --> T[Auto-Refresh Timer Check]:::ui
-    T -->|Time Elapsed| B
-    T -->|No Refresh| U([END]):::ui
+    Q --> T[Render Trade History & PnL]:::ui
+    R --> T
+    S5 --> T
+
+    %% ---------- REFRESH LOOP ----------
+    T --> U[Auto-Refresh Timer Check]:::ui
+    U -->|Time Elapsed| B
+    U -->|No Refresh| V([END]):::ui
 
     %% ---------- STYLES ----------
     classDef ui fill:#E3F2FD,stroke:#1565C0,stroke-width:1.5px,color:#0D47A1;
