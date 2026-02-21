@@ -481,74 +481,36 @@ def index_pcr_status_action(pcr: float):
 st.set_page_config(
     page_title=config.APP_TITLE,
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"  # ✅ FIX
 )
-# =====================================================
-# 🧩 THEME PATCH — FIX TOP GAP / HEADER OVERLAY
-# =====================================================
+
 st.markdown(
     """
     <style>
     /* ===============================
-       REMOVE TOP WHITE/GREY STRIP
+       SAFE HEADER STYLING (DO NOT REMOVE HEADER)
        =============================== */
 
-    /* Root app container */
-    [data-testid="stApp"] {
-        background: transparent !important;
-    }
-
-    /* Header container (this causes the block) */
     header[data-testid="stHeader"] {
         background: transparent !important;
-        height: 0rem !important;
+        border-bottom: none !important;
     }
 
-    /* Prevent header from reserving space */
-    header[data-testid="stHeader"] > div {
-        display: none !important;
+    /* Reduce header height, don't kill it */
+    header[data-testid="stHeader"] {
+        height: auto !important;
     }
 
-    /* Ensure main content starts at top */
+    /* Main content spacing */
     [data-testid="stMainBlockContainer"] {
         padding-top: 0.5rem !important;
-        margin-top: 0 !important;
     }
 
-    /* Safety: ensure nothing overlays content */
-    section[data-testid="stAppViewContainer"] {
-        overflow: visible !important;
-    }
-    
-    /* ===============================
-   LIVE PULSE INDICATOR
-   =============================== */
-.live-pulse {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 1.05rem;
-    font-weight: 600;
-}
-
-.live-dot {
-    width: 8px;
-    height: 8px;
-    background-color: #00c853;
-    border-radius: 50%;
-    animation: livePulse 1.2s infinite ease-in-out;
-}
-
-@keyframes livePulse {
-    0%   { transform: scale(0.8); opacity: 0.4; }
-    50%  { transform: scale(1.2); opacity: 1; }
-    100% { transform: scale(0.8); opacity: 0.4; }
-}
-    
     </style>
     """,
     unsafe_allow_html=True
 )
+
 # =====================================================
 # DISCLAIMER
 # =====================================================
