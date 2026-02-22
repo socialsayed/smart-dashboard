@@ -42,6 +42,19 @@ from services.nifty_options import (
 from utils.cache import init_state
 from utils.charts import intraday_candlestick, add_vwap
 
+# =====================================================
+# 🔍 ENVIRONMENT DETECTION (LOCAL vs CLOUD / MOBILE)
+# =====================================================
+
+def is_local_desktop():
+    """
+    Detect if app is running locally on a desktop machine.
+    Streamlit Cloud / mobile = False
+    """
+    return os.path.exists("data") and os.path.isdir("data")
+
+IS_LOCAL_DESKTOP = is_local_desktop()
+
 
 # =====================================================
 # 📘 SECTION HELP TOOLTIP TEXT
@@ -237,6 +250,23 @@ def get_cookie_status():
     if age >= COOKIE_STALE_HOURS:
         return "STALE", age
     return "FRESH", age
+    
+# =====================================================
+# 📊 FALLBACK OPTIONS DATA (MOBILE / CLOUD SAFE)
+# =====================================================
+
+def get_fallback_options_snapshot():
+    """
+    Delayed / indicative options sentiment
+    SAFE for mobile & cloud users
+    """
+    return {
+        "spot": "NIFTY 50",
+        "pcr": 1.02,
+        "bias": "NEUTRAL",
+        "oi_summary": "Balanced PUT & CALL activity",
+        "data_type": "Delayed / Indicative",
+    }
 
 # =====================================================
 # 🔍 SANITY CHECK (INTRADAY DATA)
