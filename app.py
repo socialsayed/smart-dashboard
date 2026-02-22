@@ -658,59 +658,6 @@ if not st.session_state.history:
     st.session_state.pnl = sum(t["PnL"] for t in closed)
 
         
-# =====================================================
-# HEADER
-# =====================================================
-st.title("📊 Smart Intraday Trading Dashboard")
-
-st.warning(
-    "⚠️ This dashboard is for *market analysis and educational purposes only*. "
-    "It does *NOT* provide investment advice, does *NOT* execute real trades, "
-    "and is *NOT registered with SEBI*."
-)
-
-# =====================================================
-# 🚨 IMPORTANT REGULATORY & USAGE DISCLOSURE (PROMINENT)
-# =====================================================
-
-st.markdown(
-    """
-    <div style="
-        background-color: #f5f7fa;
-        border-left: 6px solid #455a64;
-        padding: 14px 16px;
-        margin: 12px 0;
-        border-radius: 8px;
-        font-size: 1.05rem;
-        line-height: 1.5;
-    ">
-
-    <p><strong>
-    ⚠️ This dashboard is for <u>market analysis and educational purposes only</u>.
-    It does <span style="color:#d32f2f;">NOT provide investment advice</span>,
-    does <span style="color:#d32f2f;">NOT execute real trades</span>,
-    and is <span style="color:#d32f2f;">NOT registered with SEBI</span>.
-    </strong></p>
-
-    <p><strong>
-    📊 A professional intraday <u>decision-support system</u> designed to help traders
-    analyze <u>price structure, market sentiment, and risk</u> — <u>before taking trades</u>.
-    </strong></p>
-
-    <p><strong>
-    ℹ️ Scanner results indicate <u>market conditions only</u>.
-    They are <span style="color:#d32f2f;">NOT buy / sell recommendations</span>.
-    </strong></p>
-
-    <p><strong>
-    ℹ️ Trade status reflects <u>rule validation only</u> and is
-    <span style="color:#d32f2f;">NOT a recommendation to trade</span>.
-    </strong></p>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
 
 # =====================================================
 # 📜 TABS: DASHBOARD | GUIDE | LEGAL
@@ -725,12 +672,12 @@ tabs = st.tabs([
 # 🧭 APP GUIDE & HOW TO USE
 # =====================================================
 with tabs[1]:
-    st.markdown("## 🧭 Smart Intraday Trading Dashboard — User Guide")
+    st.markdown("## 🧭 Smart Intraday Trading — User Guide")
     
     st.markdown("""
 ### 🎯 What is this app?
 
-This is a **professional intraday decision-support dashboard**.
+This is a **professional intraday decision-support tool**.
 
 It helps you:
 • Read market structure  
@@ -770,7 +717,7 @@ Rules always win.
 
 ---
 
-### 📌 How to use this dashboard properly
+### 📌 How to use this tool properly
 
 • Trade only when market is OPEN  
 • Wait for structure confirmation  
@@ -780,7 +727,7 @@ Rules always win.
 **Discipline > Frequency**
 """)
 
-    st.info("📌 Use the 📊 Dashboard tab for live market analysis.")
+    st.info("📌 Use the first tab for live market analysis.")
 
 
 # =====================================================
@@ -820,12 +767,65 @@ You are fully responsible for all trading decisions.
 For advice, consult a **SEBI-registered Investment Advisor**.
 """)
 
-    st.caption("© Smart Intraday Trading Dashboard — Educational Use Only")
+    st.caption("© Smart Intraday Trading — Educational Use Only")
     
 # =====================================================
 # 📊 DASHBOARD (ALL LIVE UI)
 # =====================================================
 with tabs[0]:
+    # =====================================================
+    # HEADER
+    # =====================================================
+    st.title("📊 Smart Intraday Trading Dashboard")
+
+    st.warning(
+        "⚠️ This dashboard is for *market analysis and educational purposes only*. "
+        "It does *NOT* provide investment advice, does *NOT* execute real trades, "
+        "and is *NOT registered with SEBI*."
+    )
+
+    # =====================================================
+    # 🚨 IMPORTANT REGULATORY & USAGE DISCLOSURE (PROMINENT)
+    # =====================================================
+
+    st.markdown(
+        """
+        <div style="
+            background-color: #f5f7fa;
+            border-left: 6px solid #455a64;
+            padding: 14px 16px;
+            margin: 12px 0;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            line-height: 1.5;
+        ">
+
+        <p><strong>
+        ⚠️ This dashboard is for <u>market analysis and educational purposes only</u>.
+        It does <span style="color:#d32f2f;">NOT provide investment advice</span>,
+        does <span style="color:#d32f2f;">NOT execute real trades</span>,
+        and is <span style="color:#d32f2f;">NOT registered with SEBI</span>.
+        </strong></p>
+
+        <p><strong>
+        📊 A professional intraday <u>decision-support system</u> designed to help traders
+        analyze <u>price structure, market sentiment, and risk</u> — <u>before taking trades</u>.
+        </strong></p>
+
+        <p><strong>
+        ℹ️ Scanner results indicate <u>market conditions only</u>.
+        They are <span style="color:#d32f2f;">NOT buy / sell recommendations</span>.
+        </strong></p>
+
+        <p><strong>
+        ℹ️ Trade status reflects <u>rule validation only</u> and is
+        <span style="color:#d32f2f;">NOT a recommendation to trade</span>.
+        </strong></p>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     # =====================================================
     # SESSION DEFAULTS (SAFE, REQUIRED)
@@ -921,11 +921,11 @@ with tabs[0]:
     # =====================================================
     # ℹ️ SIDEBAR – APP GUIDE / HOW TO USE
     # =====================================================
-    with st.sidebar.expander("ℹ️ App Guide – What This Dashboard Does", expanded=False):
+    with st.sidebar.expander("ℹ️ App Guide – What This Tool Does", expanded=False):
     
         st.markdown("""
     ### 🎯 What is this app?
-    This is a **Smart Intraday Trading Dashboard** designed to help traders make
+    This is a **Smart Intraday Trading tool** designed to help traders make
     **disciplined, rule-based decisions** using:
     
     • Price action  
@@ -1053,1325 +1053,1325 @@ with tabs[0]:
     """)
     
 
-# =====================================================
-# 🔎 MARKET OPPORTUNITY SCANNER
-# =====================================================
+    # =====================================================
+    # 🔎 MARKET OPPORTUNITY SCANNER
+    # =====================================================
 
-st.sidebar.markdown("### 🔎 Market Scanner")
+    st.sidebar.markdown("### 🔎 Market Scanner")
 
-scanner_mode = st.sidebar.radio(
-    "Scan Universe",
-    options=[
-        "NIFTY 50",
-        "BANKNIFTY Stocks",
-        "Daily Watchlist",
-        "Manual Stock",
-    ],
-    index=0,
-)
-
-if scanner_mode == "Manual Stock":
-    st.info(
-        "ℹ️ Manual Stock scanning is currently **disabled**.\n\n"
-        "You can still analyze charts, levels, VWAP, and options sentiment below."
+    scanner_mode = st.sidebar.radio(
+        "Scan Universe",
+        options=[
+            "NIFTY 50",
+            "BANKNIFTY Stocks",
+            "Daily Watchlist",
+            "Manual Stock",
+        ],
+        index=0,
     )
 
-
-manual_symbol = None
-if scanner_mode == "Manual Stock":
-    st.sidebar.text_input(
-    "Enter Stock Symbol",
-    placeholder="Manual mode not live yet",
-    disabled=True
-)
-
-    if manual_symbol == "":
-        manual_symbol = None
-        
-    st.sidebar.caption(
-        "ℹ️ Manual Stock scanning is **not live yet**. "
-        "This option is for **structure viewing only**."
-    )
-    
-# =====================================================
-# 🔧 SCANNER SYMBOL SELECTION (FIXED)
-# =====================================================
-
-scan_symbols = []
-
-if scanner_mode == "NIFTY 50":
-    scan_symbols = config.INDEX_MAP["NIFTY 50"]
-
-elif scanner_mode == "BANKNIFTY Stocks":
-    scan_symbols = config.INDEX_MAP.get("BANKNIFTY", [])
-
-elif scanner_mode == "Daily Watchlist":
-    scan_symbols = cached_daily_watchlist(
-    config.INDEX_MAP[index],
-    now_ist().date()
-)
-
-elif scanner_mode == "Manual Stock":
-    scan_symbols = []  # 🔒 Scanner disabled intentionally
-        
-# =====================================================
-# MARKET STATUS
-# =====================================================
-st.subheader(
-    "🕒 Market Status",
-    help=SECTION_HELP["market_status"]
-)
-
-open_now, next_open = market_status()
-ist_now = now_ist()
-
-c1, c2, c3 = st.columns(3)
-
-c1.metric("🇮🇳 IST Time", ist_now.strftime("%d %b %Y, %H:%M:%S"))
-c2.metric("Market Status", "🟢 OPEN" if open_now else "🔴 CLOSED")
-
-if not open_now and next_open:
-    c3.metric("Next Market Open", next_open.strftime("%d %b %Y %H:%M IST"))
-
-st.divider()
+    if scanner_mode == "Manual Stock":
+        st.info(
+            "ℹ️ Manual Stock scanning is currently **disabled**.\n\n"
+            "You can still analyze charts, levels, VWAP, and options sentiment below."
+        )
 
 
-FAST_REFRESH_MS = 1500 if open_now else 10000
-
-
-if "alert_state" not in st.session_state:
-    st.session_state.alert_state = set()
-    
-# =====================================================
-# 🔎 MARKET OPPORTUNITY SCANNER OUTPUT
-# =====================================================
-
-
-
-if open_now and scan_symbols:
-    st.subheader("🔎 Market Opportunities")
-    
-    st.caption(
-    "ℹ️ The Market Scanner highlights stocks meeting predefined conditions "
-    "based on price structure, VWAP, ORB, and sentiment. "
-    "**It does NOT recommend trades.**"
-)
-
-    scanner_results = run_market_opportunity_scanner(scan_symbols)
-
-    if not scanner_results:
-        st.info("ℹ️ No valid trade setups found for the selected stock.")
-    else:
-        for res in scanner_results:
-
-            symbol = res["symbol"]
-            status = res["status"]
-            confidence = res["confidence"]
-            reasons = res["reasons"]
-
-            ml_badge = ""
-            if "ml_score" in res and res["ml_score"] is not None:
-                ml_badge = f" | 🤖 ML: {int(res['ml_score'] * 100)}"
-
-            if status == "BUY":
-                st.success(
-                    f"🟢 BUY SETUP: {symbol} | Confidence: {confidence}{ml_badge}\n"
-                    + " • " + "\n • ".join(reasons)
-                )
-            elif status == "WATCH":
-                st.warning(
-                    f"🟡 WATCH: {symbol} | Confidence: {confidence}{ml_badge}\n"
-                    + " • " + "\n • ".join(reasons)
-                )
-            else:
-                st.error(
-                    f"🔴 AVOID: {symbol} | Confidence: {confidence}{ml_badge}\n"
-                    + " • " + "\n • ".join(reasons)
-                )
-                
-
-# =====================================================
-# 🔄 LIVE REFRESH STATUS
-# =====================================================
-refresh_interval = LIVE_REFRESH if open_now else 20
-
-c1, c2 = st.columns([0.7, 0.3])
-
-with c1:
-    st.caption(
-        f"🔄 Auto-refresh every **{refresh_interval}s** "
-        f"({'Market Open' if open_now else 'Market Closed'})"
+    manual_symbol = None
+    if scanner_mode == "Manual Stock":
+        st.sidebar.text_input(
+        "Enter Stock Symbol",
+        placeholder="Manual mode not live yet",
+        disabled=True
     )
 
-with c2:
-    st.caption(
-        f"🕒 Last update: {now_ist().strftime('%H:%M:%S')} IST"
+        if manual_symbol == "":
+            manual_symbol = None
+
+        st.sidebar.caption(
+            "ℹ️ Manual Stock scanning is **not live yet**. "
+            "This option is for **structure viewing only**."
+        )
+
+    # =====================================================
+    # 🔧 SCANNER SYMBOL SELECTION (FIXED)
+    # =====================================================
+
+    scan_symbols = []
+
+    if scanner_mode == "NIFTY 50":
+        scan_symbols = config.INDEX_MAP["NIFTY 50"]
+
+    elif scanner_mode == "BANKNIFTY Stocks":
+        scan_symbols = config.INDEX_MAP.get("BANKNIFTY", [])
+
+    elif scanner_mode == "Daily Watchlist":
+        scan_symbols = cached_daily_watchlist(
+        config.INDEX_MAP[index],
+        now_ist().date()
     )
 
-# 🔁 Silent background refresh (NO UI impact)
-background_refresh(stock, open_now)
+    elif scanner_mode == "Manual Stock":
+        scan_symbols = []  # 🔒 Scanner disabled intentionally
 
-# =====================================================
-# LIVE PRICE (TERMINAL-GRADE)
-# =====================================================
-# Live Price header (LIVE only when market is OPEN)
-if open_now:
-    st.markdown(
-        """
-        <div class="live-pulse">
-            📡 Live Price
-            <span class="live-dot"></span>
-            <span style="color:#00c853;">LIVE</span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-else:
+    # =====================================================
+    # MARKET STATUS
+    # =====================================================
     st.subheader(
-        "📡 Live Price",
-        help=SECTION_HELP["live_price"]
+        "🕒 Market Status",
+        help=SECTION_HELP["market_status"]
     )
 
-poll_price(stock)
-price = st.session_state.get("last_price_metric")
-src = "LIVE"
+    open_now, next_open = market_status()
+    ist_now = now_ist()
 
-# Initialize previous close ONCE
-if st.session_state.prev_close is None and price is not None:
-    st.session_state.prev_close = price
+    c1, c2, c3 = st.columns(3)
 
-# Delta vs TODAY OPEN (terminal-grade, correct)
-delta = None
-open_price = None
+    c1.metric("🇮🇳 IST Time", ist_now.strftime("%d %b %Y, %H:%M:%S"))
+    c2.metric("Market Status", "🟢 OPEN" if open_now else "🔴 CLOSED")
 
-df_intraday = st.session_state.get("last_intraday_df")
-
-# Prefer true intraday OPEN
-if df_intraday is not None and not df_intraday.empty:
-    open_price = df_intraday["Open"].iloc[0]
-
-# Fallback ONLY if intraday data not ready yet
-elif st.session_state.prev_close is not None:
-    open_price = st.session_state.prev_close
-
-if price is not None and open_price is not None:
-    delta = round(price - open_price, 2)
-
-st.metric(
-    stock,
-    f"{price:.2f}" if price is not None else "—",
-    delta=f"{delta:+.2f}" if delta is not None else None,
-    help=f"Source: {src}"
-)
-
-# 🔥 UPDATE LAST PRICE AFTER UI RENDER
-if price is not None:
-    st.session_state.last_price_metric = price
-
-st.divider()
-
-# =====================================================
-# 📈 LIVE PRICE CONTEXT — % vs OPEN + DAY RANGE BAR
-# =====================================================
-
-df_intraday = st.session_state.get("last_intraday_df")
-
-open_price = high_price = low_price = None
-pct_change = None
-range_pos = None
-
-if df_intraday is not None and not df_intraday.empty and price is not None:
-    open_price = df_intraday["Open"].iloc[0]
-    high_price = df_intraday["High"].max()
-    low_price = df_intraday["Low"].min()
-
-    # % change vs OPEN
-    pct_change = round(((price - open_price) / open_price) * 100, 2)
-
-    # Day range position (0 → 1)
-    if high_price > low_price:
-        range_pos = (price - low_price) / (high_price - low_price)
-
-# ---------- Color intensity based on distance from OPEN ----------
-delta_color = "#888888"  # neutral fallback
-
-if open_price is not None and price is not None:
-    distance = abs(price - open_price) / open_price
-
-    if price >= open_price:
-        delta_color = (
-            "#1b5e20" if distance > 0.015 else   # strong green
-            "#2e7d32" if distance > 0.008 else   # medium green
-            "#66bb6a"                            # light green
-        )
-    else:
-        delta_color = (
-            "#b71c1c" if distance > 0.015 else   # strong red
-            "#c62828" if distance > 0.008 else   # medium red
-            "#ef5350"                            # light red
-        )
-
-# ---------- % CHANGE DISPLAY (UNDER DELTA) ----------
-if pct_change is not None:
-    st.markdown(
-        f"""
-        <div style="
-            font-size:0.95rem;
-            color:{delta_color};
-            margin-top:-6px;
-            margin-bottom:4px;
-        ">
-            ({pct_change:+.2f}% vs Open)
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-# ---------- DAY RANGE PROGRESS BAR ----------
-if range_pos is not None:
-    st.progress(
-        min(max(range_pos, 0.0), 1.0),
-        text=(
-            f"Day Range | "
-            f"Low {low_price:.2f}  "
-            f"Open {open_price:.2f}  "
-            f"High {high_price:.2f}"
-        )
-    )
-
-# =====================================================
-# 📌 LIVE SNAPSHOT — TODAY RANGE + FUNDAMENTALS
-# =====================================================
-
-# ---------- TODAY OPEN / HIGH / LOW (from intraday data) ----------
-today_open = today_high = today_low = None
-
-df_intraday = st.session_state.get("last_intraday_df")
-
-if df_intraday is not None and not df_intraday.empty:
-    today_open = df_intraday["Open"].iloc[0]
-    today_high = df_intraday["High"].max()
-    today_low = df_intraday["Low"].min()
-
-c1, c2, c3 = st.columns(3)
-
-c1.metric("Open", f"{today_open:.2f}" if today_open else "—")
-c2.metric("High (Today)", f"{today_high:.2f}" if today_high else "—")
-c3.metric("Low (Today)", f"{today_low:.2f}" if today_low else "—")
-
-st.divider()
-
-# ---------- FUNDAMENTALS (SLOW-CHANGING, SAFE) ----------
-# NOTE:
-# Replace the placeholder fetch below with your preferred source
-# (Yahoo Finance, NSE, Screener API, etc.)
-
-@st.cache_data(ttl=3600)
-def get_fundamentals(symbol):
-    """
-    Expected return dict keys:
-    market_cap, pe_ratio, dividend_yield, quarterly_dividend
-    """
-    return {
-        "market_cap": None,
-        "pe_ratio": None,
-        "dividend_yield": None,
-        "quarterly_dividend": None,
-    }
-
-fundamentals = get_fundamentals(stock)
-
-c1, c2, c3, c4 = st.columns(4)
-
-c1.metric(
-    "Market Cap",
-    f"₹ {fundamentals['market_cap']:,} Cr"
-    if fundamentals["market_cap"] else "—"
-)
-
-c2.metric(
-    "P/E Ratio",
-    f"{fundamentals['pe_ratio']:.2f}"
-    if fundamentals["pe_ratio"] else "—"
-)
-
-c3.metric(
-    "Dividend %",
-    f"{fundamentals['dividend_yield']:.2f}%"
-    if fundamentals["dividend_yield"] else "—"
-)
-
-c4.metric(
-    "Qtrly Dividend",
-    f"₹ {fundamentals['quarterly_dividend']:.2f}"
-    if fundamentals["quarterly_dividend"] else "—"
-)
-
-# =====================================================
-# TOP METRICS
-# =====================================================
-st.subheader("📊 Top Metrics")
-
-ltp = st.session_state.get("last_price_metric")
-prev_close = st.session_state.get("prev_close")
-
-change = pct_change = None
-if ltp is not None and prev_close is not None:
-    change = round(ltp - prev_close, 2)
-    pct_change = round((change / prev_close) * 100, 2)
-
-c1, c2, c3 = st.columns(3)
-
-c1.metric("LTP", ltp if ltp is not None else "—")
-c2.metric("Change", f"{change:+}" if change is not None else "—")
-c3.metric("% Change", f"{pct_change:+}%" if pct_change is not None else "—")
-
-st.divider()
-
-
-# =====================================================
-# INTRADAY CHART
-# =====================================================
-
-if "last_chart_ts" not in st.session_state:
-    st.session_state.last_chart_ts = 0
-
-if time.time() - st.session_state.last_chart_ts > 25:
-    result = cached_intraday_data(stock)
-    st.session_state.last_chart_ts = time.time()
-else:
-    result = (st.session_state.last_intraday_df, None)
-    
-if not isinstance(result, tuple) or len(result) != 2:
-    df, interval = None, None
-else:
-    df, interval = result
-
-interval_label = (
-    "3-Minute" if interval == "3m"
-    else "5-Minute" if interval == "5m"
-    else "Intraday"
-)
-
-# Intraday Chart header (LIVE only when market is OPEN)
-if open_now:
-    st.markdown(
-        f"""
-        <div class="live-pulse">
-            📊 Intraday Chart ({interval_label})
-            <span class="live-dot"></span>
-            <span style="color:#00c853;">LIVE</span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-else:
-    st.subheader(
-        f"📊 Intraday Chart ({interval_label})",
-        help=SECTION_HELP["intraday_chart"]
-    )
-
-if sanity_check_intraday(df, interval, stock):
-    df = cached_add_vwap(df)
-    st.session_state.last_intraday_df = df
-else:
-    df = st.session_state.last_intraday_df
-    if df is not None:
-        st.info("ℹ️ Showing last stable intraday data")
-
-# ============================================================
-# SIDB v2.4.1 — Stable Intraday Chart Render (NO FLICKER)
-# ============================================================
-
-# Case 1: First-ever load → show placeholder
-if st.session_state.last_intraday_df is None:
-    st.info("⏳ Waiting for intraday data…", icon="⏳")
-
-# Case 2: We have a stable chart → ALWAYS show it
-else:
-    fig = intraday_candlestick(
-        st.session_state.last_intraday_df,
-        stock,
-        interval_label
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    
-# =====================================================
-# WHY THIS SIGNAL?
-# =====================================================
-if strategy == "ORB Breakout":
-    with st.expander("❓ Why this ORB signal?"):
-        st.markdown("""
-• First 15 minutes define institutional bias  
-• Break beyond ORB shows momentum  
-• Works best with volume confirmation  
-""")
-else:
-    with st.expander("❓ Why VWAP matters here?"):
-        st.markdown("""
-• VWAP is institutional fair value  
-• Mean reversion works near VWAP  
-• Avoid chasing extended moves  
-""")
-
-st.divider()
-
-
-# =====================================================
-# EDUCATIONAL OVERLAY
-# =====================================================
-with st.expander("🎓 Beginner Help: How to Read This Dashboard"):
-    st.markdown("""
-• Candlesticks show price momentum  
-• VWAP defines bias  
-• ORB shows early direction  
-• Volume confirms moves  
-• Discipline > frequency  
-""")
-
-st.divider()
-
-
-# =====================================================
-# DAILY WATCHLIST
-# =====================================================
-st.subheader("🎯 Daily Watchlist", help="Auto-generated focus list for the day.")
-
-today = now_ist().date()
-watchlist = cached_daily_watchlist(
-    config.INDEX_MAP[index],
-    today
-)
-rows = []
-for sym in watchlist:
-    p, sc = get_live_price_fast(sym)
-
-    rows.append({
-        "Stock": sym,
-        "Live Price": f"{p:.2f}" if p is not None else "—",
-        "Source": sc
-    })
-
-st.dataframe(rows, use_container_width=True)
-
-st.divider()
-
-
-# =====================================================
-# SUPPORT & RESISTANCE + LIVE CONTEXT
-# =====================================================
-st.subheader(
-    "📌 Live Support & Resistance",
-    help=SECTION_HELP["support_resistance"]
-)
-
-# --- Ensure levels are always defined FIRST ---
-levels = st.session_state.get("levels", {})
-
-last_price = st.session_state.get("last_price")
-
-if price and price != last_price:
-    levels = calc_levels(price)
-    st.session_state.levels = levels
-    st.session_state.last_price = price
-
-# --- Live support / resistance from intraday structure ---
-live_support = None
-live_resistance = None
-
-if st.session_state.last_intraday_df is not None:
-    live_support = detect_live_support(
-        st.session_state.last_intraday_df
-    )
-    live_resistance = detect_live_resistance(
-        st.session_state.last_intraday_df
-    )
-
-# --- Metrics display ---
-c1, c2, c3, c4, c5 = st.columns(5)
-
-c1.metric(
-    "Support",
-    levels.get("support", "—")
-)
-c2.metric("Resistance", levels.get("resistance", "—"))
-c3.metric("ORB High", levels.get("orb_high", "—"))
-c4.metric("ORB Low", levels.get("orb_low", "—"))
-c5.metric(
-    "Live Resistance",
-    f"{live_resistance:.2f}" if live_resistance else "—",
-    help="Auto-detected from intraday swing highs"
-)
-
-# ---- Live Context (single, clean) ----
-context_msgs = []
-
-if price and levels and all(k in levels for k in ("support", "resistance", "orb_high", "orb_low")):
-    if abs(price - levels["resistance"]) / price < 0.003:
-        context_msgs.append("⚠️ Price near resistance — breakout or rejection zone.")
-    if abs(price - levels["support"]) / price < 0.003:
-        context_msgs.append("🟢 Price near support — potential demand zone.")
-    if price > levels["orb_high"]:
-        context_msgs.append("📈 Above ORB High — bullish momentum.")
-    if price < levels["orb_low"]:
-        context_msgs.append("📉 Below ORB Low — bearish momentum.")
-
-if not context_msgs:
-    context_msgs.append("ℹ️ Price is between key intraday levels.")
-
-with st.expander("ℹ️ Live Level Context (Auto-updating)"):
-    for msg in context_msgs:
-        st.markdown(f"- {msg}")
-
-st.divider()
-
-
-# =====================================================
-# 🔔 ALERTS (PRICE + LEVEL BASED)
-# =====================================================
-alerts = []
-
-if price and levels:
-    if price > levels.get("orb_high", float("inf")):
-        alerts.append("📈 ORB High Breakout")
-    if price < levels.get("orb_low", 0):
-        alerts.append("📉 ORB Low Breakdown")
-    if abs(price - levels.get("support", price)) / price < 0.002:
-        alerts.append("🟢 Near Support")
-    if abs(price - levels.get("resistance", price)) / price < 0.002:
-        alerts.append("🔴 Near Resistance")
-
-new_alerts = []
-
-for a in alerts:
-    if a not in st.session_state.alert_state:
-        new_alerts.append(a)
-        st.session_state.alert_state.add(a)
-
-if new_alerts:
-    st.subheader(
-        "🔔 Alerts",
-        help=SECTION_HELP["alerts"]
-    )
-    for a in new_alerts:
-        st.warning(a)
-
-
-# =====================================================
-# INDEX OPTIONS SENTIMENT (PCR)
-# =====================================================
-st.subheader(
-    "🧾 Index Options Sentiment (PCR)",
-    help=SECTION_HELP["options_pcr"]
-)
-
-if "last_pcr_ts" not in st.session_state:
-    st.session_state.last_pcr_ts = 0
-
-if time.time() - st.session_state.last_pcr_ts > 30:
-    index_pcr = cached_index_pcr()
-    st.session_state.last_pcr_ts = time.time()
-else:
-    index_pcr = st.session_state.get("cached_index_pcr")
-
-st.session_state.cached_index_pcr = index_pcr
-
-status, color, explanation, action = index_pcr_status_action(index_pcr)
-
-# --- PCR Metric ---
-st.metric(
-    "Put–Call Ratio (Index)",
-    f"{index_pcr:.2f}" if index_pcr is not None else "—"
-)
-
-# --- Status ---
-if color == "success":
-    st.success(f"🟢 Index Options Bias: {status}")
-elif color == "error":
-    st.error(f"🔴 Index Options Bias: {status}")
-elif color == "warning":
-    st.warning(f"⚠️ Index Options Bias: {status}")
-else:
-    st.info(f"🔵 Index Options Bias: {status}")
-
-# --- Explanation + Action (THIS IS WHAT YOU WANTED) ---
-st.markdown("**📌 What this means:**")
-st.write(explanation)
-
-st.markdown("**🎯 Suggested Action:**")
-st.write(action)
-
-st.divider()
-
-# =====================================================
-# SAFE DEFAULTS (PREVENT NameError)
-# =====================================================
-# These ensure mobile / cloud users never crash the app
-atm_df = None
-df_options = None
-
-
-# =====================================================
-# NIFTY OPTIONS SENTIMENT — SAFE DEFAULT (OPTION 1)
-# =====================================================
-
-st.subheader("📊 NIFTY Options Sentiment")
-
-fallback = get_fallback_options_snapshot()
-
-# --- ALWAYS show fallback first ---
-c1, c2, c3 = st.columns(3)
-c1.metric("Index", fallback["spot"])
-c2.metric("PCR", fallback["pcr"])
-c3.metric("Bias", fallback["bias"])
-
-st.caption(
-    "📌 Data Type: Delayed / Educational\n"
-    "ℹ️ Suitable for mobile, cloud, and beginners.\n"
-    "ℹ️ Reflects market structure, NOT trade signals."
-)
-
-# --- OPTIONAL: Upgrade to LIVE only if truly possible ---
-if IS_LOCAL_DESKTOP and cookie_status == "FRESH":
-    st.success("🖥 Desktop detected — attempting LIVE NSE options data")
-
-    try:
-        df_options, spot, expiry = cached_nifty_option_chain()
-
-        if df_options is not None and spot is not None:
-            atm_df, atm, pcr_atm, ce_oi, pe_oi = cached_atm_analysis(
-                df_options, spot
-            )
-            sentiment = options_sentiment(pcr_atm, ce_oi, pe_oi)
-
-            st.divider()
-            st.markdown("### 🔴 LIVE NSE Options (Desktop Only)")
-
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Spot", spot)
-            c2.metric("ATM", atm)
-            c3.metric("PCR (ATM)", round(pcr_atm, 2))
-            c4.metric("Expiry", expiry)
-
-            st.markdown(f"**Market Bias:** {sentiment}")
-
-    except Exception:
-        st.info("ℹ️ LIVE NSE options unavailable. Showing fallback data.")
-        
-# =====================================================
-# USER STATUS (CLEAN, NON-SCARY)
-# =====================================================
-if IS_LOCAL_DESKTOP and cookie_status != "FRESH":
-    st.info(
-        "ℹ️ Showing safe, delayed options sentiment.\n\n"
-        "Advanced users may enable LIVE NSE options using desktop browser cookies."
-    )
-
-
-# =====================================================
-# 📊 OI DOMINANCE (ATM ZONE)
-# =====================================================
-if atm_df is not None:
-    ce_oi = atm_df["ce_oi_chg"].sum()
-    pe_oi = atm_df["pe_oi_chg"].sum()
-
-    st.caption(
-        f"📊 OI Delta → CE: {ce_oi:+,.0f} | PE: {pe_oi:+,.0f}"
-    )
-
-# =====================================================
-# 🧠 STRATEGY CONTEXT (OPTIONS-AWARE)
-# =====================================================
-options_bias = "NEUTRAL"
-
-if atm_df is not None:
-    pcr_atm = calculate_pcr(atm_df)
-    ce_oi = atm_df["ce_oi_chg"].sum()
-    pe_oi = atm_df["pe_oi_chg"].sum()
-
-    if pcr_atm is not None:
-        if pcr_atm > 1.1 and pe_oi > abs(ce_oi):
-            options_bias = "BULLISH"
-        elif pcr_atm < 0.9 and ce_oi > abs(pe_oi):
-            options_bias = "BEARISH"
-
-st.caption(f"🧠 Options Bias: **{options_bias}**")
-
-
-# =====================================================
-# 🔔 OPTIONS-BASED ALERTS
-# =====================================================
-options_alerts = []
-
-if atm_df is not None:
-
-    # Ensure values are always defined
-    pcr_atm = calculate_pcr(atm_df)
-    ce_oi = atm_df["ce_oi_chg"].sum()
-    pe_oi = atm_df["pe_oi_chg"].sum()
-
-    # Strong bullish options activity
-    if pcr_atm >= 1.2 and pe_oi > 100_000:
-        options_alerts.append("🟢 Strong PUT Writing (Bullish Options Activity)")
-
-    # Strong bearish options activity
-    if pcr_atm <= 0.8 and ce_oi > 100_000:
-        options_alerts.append("🔴 Strong CALL Writing (Bearish Options Activity)")
-
-    # Volatility expansion
-    if ce_oi > 100_000 and pe_oi > 100_000:
-        options_alerts.append("⚠️ Volatility Expansion (Both CE & PE OI Rising)")
-
-    # OI unwinding
-    if ce_oi < -100_000 and pe_oi < -100_000:
-        options_alerts.append("🟡 OI Unwinding (Positions Closing)")
-
-    # Options bias flip alert
-    last_bias = st.session_state.last_options_bias
-    if last_bias and last_bias != options_bias:
-        options_alerts.append(
-            f"🔄 Options Bias Shift: {last_bias} → {options_bias}"
-        )
-
-    # Persist latest bias
-    st.session_state.last_options_bias = options_bias
-
-
-# Show only NEW options alerts
-new_options_alerts = []
-for a in options_alerts:
-    if a not in st.session_state.alert_state:
-        new_options_alerts.append(a)
-        st.session_state.alert_state.add(a)
-
-if new_options_alerts:
-    st.subheader("🔔 Options-Based Alerts")
-    for a in new_options_alerts:
-        st.warning(a)
-
-st.caption(
-    "ℹ️ Trade status reflects *rule validation*, not a recommendation to trade."
-)
-
-# =====================================================
-# 📈 TRADE DECISION ENGINE (RULE + ML ADVISORY)
-# =====================================================
-st.subheader(
-    "📈 Trade Decision Engine",
-    help=SECTION_HELP["trade_decision"]
-)
-
-# -------------------------------
-# Risk Status
-# -------------------------------
-risk_status = risk_ok(
-    st.session_state.trades,
-    max_trades,
-    st.session_state.pnl,
-    max_loss
-)
-
-# -------------------------------
-# RULE-BASED CONFIDENCE
-# -------------------------------
-confidence_score = None
-confidence_reasons = {}
-
-vwap_slope = 0
-trend_alignment = "NONE"
-
-df_tc = st.session_state.get("last_intraday_df")
-
-if price is not None and df_tc is not None and not df_tc.empty:
-
-    # VWAP slope (last 5 candles)
-    vwap_series = df_tc["VWAP"].tail(5)
-    if len(vwap_series) >= 2:
-        vwap_slope = (
-            vwap_series.iloc[-1] - vwap_series.iloc[0]
-        ) / vwap_series.iloc[-1]
-
-    # Trend structure
-    highs = df_tc["High"].tail(5)
-    lows = df_tc["Low"].tail(5)
-
-    hh = (highs.diff() > 0).sum()
-    hl = (lows.diff() > 0).sum()
-
-    if hh >= 3 and hl >= 3:
-        trend_alignment = "STRONG"
-    elif hh >= 2:
-        trend_alignment = "MILD"
-
-    direction = "BUY" if options_bias != "BEARISH" else "SELL"
-
-    confidence_score, confidence_reasons = calculate_trade_confidence({
-        "price": price,
-        "vwap": df_tc["VWAP"].iloc[-1],
-        "vwap_slope": vwap_slope,
-        "orb_signal": (
-            "CONFIRMED"
-            if price > levels.get("orb_high", float("inf"))
-            else "NONE"
-        ),
-        "trend_alignment": trend_alignment,
-        "pcr": index_pcr,
-        "direction": direction
-    })
-
-# -------------------------------
-# ML SETUP QUALITY (ADVISORY ONLY)
-# -------------------------------
-ml_score = None
-
-if confidence_score is not None:
-    try:
-        features = build_feature_vector({
-            "price": price,
-            "vwap": df_tc["VWAP"].iloc[-1],
-            "vwap_slope": vwap_slope,
-            "support": levels.get("support"),
-            "resistance": levels.get("resistance"),
-            "above_orb_high": price > levels.get("orb_high", float("inf")),
-            "below_orb_low": price < levels.get("orb_low", 0),
-            "trend_strength": (
-                2 if trend_alignment == "STRONG"
-                else 1 if trend_alignment == "MILD"
-                else 0
-            ),
-            "index_pcr": index_pcr if index_pcr else 1.0,
-            "options_bias": (
-                1 if options_bias == "BULLISH"
-                else -1 if options_bias == "BEARISH"
-                else 0
-            ),
-            "minutes_since_open": int(
-                (now_ist().timestamp() - df_tc.index[0].timestamp()) / 60
-            ),
-            "trades_today": st.session_state.trades,
-            "current_pnl": st.session_state.pnl,
-        })
-        ml_score = score_setup(features)
-    except Exception:
-        ml_score = None
-        
-# -------------------------------
-# ML FEATURE EXPLANATION
-# -------------------------------
-if ml_score is not None and features is not None:
-
-    with st.expander("🧠 Why ML rated this setup this way?"):
-
-        st.markdown("**Key inputs used by ML:**")
-
-        st.write(f"- Price vs VWAP: {'Above' if features['price'] > features['vwap'] else 'Below'}")
-        st.write(f"- VWAP Slope: {features['vwap_slope']:.4f}")
-        st.write(f"- Trend Strength: {features['trend_strength']} (0=Weak, 2=Strong)")
-        st.write(f"- Above ORB High: {features['above_orb_high']}")
-        st.write(f"- Below ORB Low: {features['below_orb_low']}")
-        st.write(f"- Index PCR: {features['index_pcr']:.2f}")
-        st.write(f"- Options Bias: {features['options_bias']}")
-        st.write(f"- Trades Today: {features['trades_today']}")
-        st.write(f"- Current PnL: ₹{features['current_pnl']:.2f}")
-
-        st.caption(
-            "ML compares this structure to historically profitable vs unprofitable setups."
-        )
-
-# -------------------------------
-# FINAL TRADE GATE
-# -------------------------------
-allowed, reason = trade_decision(
-    open_now,
-    risk_status,
-    index_pcr,
-    price,
-    levels.get("resistance", 0),
-    options_bias=options_bias,
-    confidence_score=confidence_score
-)
-
-# -------------------------------
-# UI OUTPUT
-# -------------------------------
-if allowed:
-    st.markdown(
-        "<div class='trade-allowed'>✅ TRADE CONDITION SATISFIED</div>",
-        unsafe_allow_html=True
-    )
-else:
-    st.markdown(
-        f"<div class='trade-blocked'>🚫 TRADE BLOCKED<br>{reason}</div>",
-        unsafe_allow_html=True
-    )
-
-# -------------------------------
-# CONFIDENCE DISPLAY
-# -------------------------------
-if confidence_score is not None:
-    st.markdown(f"#### 🎯 Rule-Based Confidence: {confidence_score}/100")
-    st.progress(confidence_score / 100)
-    st.markdown(
-        f"**Level:** {confidence_label(confidence_score)}"
-    )
-
-    with st.expander("Why this setup?"):
-        for k, v in confidence_reasons.items():
-            st.write(f"- **{k}**: {v}")
-
-# -------------------------------
-# ML DISPLAY (ADVISORY — ENHANCED)
-# -------------------------------
-if ml_score is not None:
-
-    ml_pct = int(ml_score * 100)
-
-    if ml_pct >= 70:
-        ml_color = "#1b5e20"   # dark green
-        ml_label = "STRONG"
-    elif ml_pct >= 45:
-        ml_color = "#f9a825"   # amber
-        ml_label = "AVERAGE"
-    else:
-        ml_color = "#b71c1c"   # red
-        ml_label = "WEAK"
-
-    st.markdown(
-        f"""
-        <div style="
-            border-left: 6px solid {ml_color};
-            background: #f9f9f9;
-            padding: 10px 14px;
-            border-radius: 6px;
-            margin-top: 6px;
-        ">
-            <strong>🤖 ML Setup Quality</strong><br>
-            <span style="font-size:1.4rem; color:{ml_color};">
-                {ml_pct}/100 — {ml_label}
-            </span>
-            <br>
-            <span style="font-size:0.9rem; color:#555;">
-                ML is advisory only. Rules always override ML.
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-# =====================================================
-# 🧪 PAPER TRADE SIMULATOR (EXECUTION CONTROLS)
-# =====================================================
-st.subheader(
-    "🧪 Paper Trade Simulator",
-    help=SECTION_HELP["paper_trade"]
-)
-
-ltp = st.session_state.get("last_price_metric")
-
-qty = st.number_input(
-    "Quantity (Lots / Units)",
-    min_value=1,
-    step=1
-)
-
-col1, col2 = st.columns(2)
-
-# -------------------------
-# BUY
-# -------------------------
-with col1:
-    if st.button("📈 BUY (Paper Trade)", use_container_width=True):
-
-        if not allowed:
-            st.error(f"❌ Trade blocked: {reason}")
-        elif ltp is None:
-            st.error("❌ Live price unavailable.")
-        else:
-            trade_id = generate_trade_id()
-            entry_time = now_ist().strftime("%H:%M:%S")
-
-            trade_row = {
-                "Trade ID": trade_id,
-                "Date": get_trade_date(),
-                "Symbol": stock,
-                "Side": "BUY",
-                "Entry": round(ltp, 2),
-                "Exit": None,
-                "Qty": qty,
-                "PnL": 0.0,
-                "Entry Time": entry_time,
-                "Exit Time": None,
-                "Strategy": strategy,
-                "Options Bias": options_bias,
-                "Market Status": "OPEN",
-                "Notes": "",
-                "Status": "OPEN",
-            }
-
-            append_trade(trade_row)
-
-            st.success(f"📈 BUY executed | {stock} @ {ltp}")
-
-            # 🔁 Reload + recompute risk
-            st.session_state.history = load_day_trades()
-            refresh_risk_from_history()
-            st.rerun()
-
-# -------------------------
-# EXIT (LATEST OPEN)
-# -------------------------
-with col2:
-    if st.button("❌ EXIT POSITION", use_container_width=True):
-
-        open_trades = [
-            t for t in load_day_trades()
-            if t["Symbol"] == stock and t["Status"] == "OPEN"
-        ]
-
-        if not open_trades:
-            st.warning("No open position for this stock.")
-        elif ltp is None:
-            st.error("❌ Live price unavailable.")
-        else:
-            t = open_trades[-1]  # exit latest open trade
-            pnl = round((ltp - t["Entry"]) * t["Qty"], 2)
-            exit_time = now_ist().strftime("%H:%M:%S")
-
-            update_trade_in_csv(
-                t["Trade ID"],
-                {
-                    "Exit": ltp,
-                    "PnL": pnl,
-                    "Exit Time": exit_time,
-                    "Status": "CLOSED",
-                }
-            )
-
-            st.success(f"❌ {stock} CLOSED | PnL ₹{pnl}")
-
-            # 🔁 Reload + recompute risk
-            st.session_state.history = load_day_trades()
-            refresh_risk_from_history()
-            st.rerun()
-
-# =====================================================
-# 📋 PAPER TRADES – TODAY (OPEN + CLOSED)
-# =====================================================
-st.subheader("📋 Paper Trades – Today")
-
-trades_today = load_day_trades()
-ltp = st.session_state.get("last_price_metric")
-
-open_trades = [t for t in trades_today if t["Status"] == "OPEN"]
-closed_trades = [t for t in trades_today if t["Status"] == "CLOSED"]
-
-# =====================================================
-# NET LIVE PnL (ALL OPEN TRADES)
-# =====================================================
-if open_trades and ltp is not None:
-    net_live_pnl = sum(
-        (ltp - t["Entry"]) * t["Qty"]
-        for t in open_trades
-        if isinstance(t.get("Entry"), (int, float))
-    )
-
-    color = (
-        "green" if net_live_pnl > 0
-        else "red" if net_live_pnl < 0
-        else "gray"
-    )
-
-    st.markdown(
-        f"""
-        <h3 style="color:{color}; margin-bottom:0;">
-            📈 Net Live PnL (Open Trades): ₹{net_live_pnl:.2f}
-        </h3>
-        """,
-        unsafe_allow_html=True
-    )
+    if not open_now and next_open:
+        c3.metric("Next Market Open", next_open.strftime("%d %b %Y %H:%M IST"))
 
     st.divider()
 
 
-# =========================
-# OPEN TRADES
-# =========================
-if open_trades:
-    st.markdown("### 🟢 Open Trades")
+    FAST_REFRESH_MS = 1500 if open_now else 10000
 
-    # ✅ Column headers (ADD HERE — once)
-    h1, h2, h3, h4, h5, h6, h7, h8 = st.columns(
-        [1.2, 0.8, 0.6, 1, 1, 0.8, 0.9, 1.2]
+
+    if "alert_state" not in st.session_state:
+        st.session_state.alert_state = set()
+
+    # =====================================================
+    # 🔎 MARKET OPPORTUNITY SCANNER OUTPUT
+    # =====================================================
+
+
+
+    if open_now and scan_symbols:
+        st.subheader("🔎 Market Opportunities")
+
+        st.caption(
+        "ℹ️ The Market Scanner highlights stocks meeting predefined conditions "
+        "based on price structure, VWAP, ORB, and sentiment. "
+        "**It does NOT recommend trades.**"
     )
-    h1.markdown("**Symbol**")
-    h2.markdown("**Side**")
-    h3.markdown("**Qty**")
-    h4.markdown("**Entry**")
-    h5.markdown("**Live Price**")
-    h6.markdown("**Live PnL (₹)**")
-    h7.markdown("**Status**")
-    h8.markdown("**Action**")
 
-    for t in open_trades:
-        live_pnl = None
-        if ltp is not None:
-            live_pnl = round((ltp - t["Entry"]) * t["Qty"], 2)
+        scanner_results = run_market_opportunity_scanner(scan_symbols)
 
-        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
-            [1.2, 0.8, 0.6, 1, 1, 0.8, 0.9, 1.2]
+        if not scanner_results:
+            st.info("ℹ️ No valid trade setups found for the selected stock.")
+        else:
+            for res in scanner_results:
+
+                symbol = res["symbol"]
+                status = res["status"]
+                confidence = res["confidence"]
+                reasons = res["reasons"]
+
+                ml_badge = ""
+                if "ml_score" in res and res["ml_score"] is not None:
+                    ml_badge = f" | 🤖 ML: {int(res['ml_score'] * 100)}"
+
+                if status == "BUY":
+                    st.success(
+                        f"🟢 BUY SETUP: {symbol} | Confidence: {confidence}{ml_badge}\n"
+                        + " • " + "\n • ".join(reasons)
+                    )
+                elif status == "WATCH":
+                    st.warning(
+                        f"🟡 WATCH: {symbol} | Confidence: {confidence}{ml_badge}\n"
+                        + " • " + "\n • ".join(reasons)
+                    )
+                else:
+                    st.error(
+                        f"🔴 AVOID: {symbol} | Confidence: {confidence}{ml_badge}\n"
+                        + " • " + "\n • ".join(reasons)
+                    )
+
+
+    # =====================================================
+    # 🔄 LIVE REFRESH STATUS
+    # =====================================================
+    refresh_interval = LIVE_REFRESH if open_now else 20
+
+    c1, c2 = st.columns([0.7, 0.3])
+
+    with c1:
+        st.caption(
+            f"🔄 Auto-refresh every **{refresh_interval}s** "
+            f"({'Market Open' if open_now else 'Market Closed'})"
         )
 
-        c1.write(t["Symbol"])
-        c2.write(t["Side"])
-        c3.write(t["Qty"])
-        c4.write(t["Entry"])
-        c5.write(ltp if ltp is not None else "—")
-        if live_pnl is None:
-            c6.write("—")
-        elif live_pnl > 0:
-            c6.markdown(f"<span style='color:green;'>+₹{live_pnl}</span>", unsafe_allow_html=True)
-        elif live_pnl < 0:
-            c6.markdown(f"<span style='color:red;'>₹{live_pnl}</span>", unsafe_allow_html=True)
+    with c2:
+        st.caption(
+            f"🕒 Last update: {now_ist().strftime('%H:%M:%S')} IST"
+        )
+
+    # 🔁 Silent background refresh (NO UI impact)
+    background_refresh(stock, open_now)
+
+    # =====================================================
+    # LIVE PRICE (TERMINAL-GRADE)
+    # =====================================================
+    # Live Price header (LIVE only when market is OPEN)
+    if open_now:
+        st.markdown(
+            """
+            <div class="live-pulse">
+                📡 Live Price
+                <span class="live-dot"></span>
+                <span style="color:#00c853;">LIVE</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.subheader(
+            "📡 Live Price",
+            help=SECTION_HELP["live_price"]
+        )
+
+    poll_price(stock)
+    price = st.session_state.get("last_price_metric")
+    src = "LIVE"
+
+    # Initialize previous close ONCE
+    if st.session_state.prev_close is None and price is not None:
+        st.session_state.prev_close = price
+
+    # Delta vs TODAY OPEN (terminal-grade, correct)
+    delta = None
+    open_price = None
+
+    df_intraday = st.session_state.get("last_intraday_df")
+
+    # Prefer true intraday OPEN
+    if df_intraday is not None and not df_intraday.empty:
+        open_price = df_intraday["Open"].iloc[0]
+
+    # Fallback ONLY if intraday data not ready yet
+    elif st.session_state.prev_close is not None:
+        open_price = st.session_state.prev_close
+
+    if price is not None and open_price is not None:
+        delta = round(price - open_price, 2)
+
+    st.metric(
+        stock,
+        f"{price:.2f}" if price is not None else "—",
+        delta=f"{delta:+.2f}" if delta is not None else None,
+        help=f"Source: {src}"
+    )
+
+    # 🔥 UPDATE LAST PRICE AFTER UI RENDER
+    if price is not None:
+        st.session_state.last_price_metric = price
+
+    st.divider()
+
+    # =====================================================
+    # 📈 LIVE PRICE CONTEXT — % vs OPEN + DAY RANGE BAR
+    # =====================================================
+
+    df_intraday = st.session_state.get("last_intraday_df")
+
+    open_price = high_price = low_price = None
+    pct_change = None
+    range_pos = None
+
+    if df_intraday is not None and not df_intraday.empty and price is not None:
+        open_price = df_intraday["Open"].iloc[0]
+        high_price = df_intraday["High"].max()
+        low_price = df_intraday["Low"].min()
+
+        # % change vs OPEN
+        pct_change = round(((price - open_price) / open_price) * 100, 2)
+
+        # Day range position (0 → 1)
+        if high_price > low_price:
+            range_pos = (price - low_price) / (high_price - low_price)
+
+    # ---------- Color intensity based on distance from OPEN ----------
+    delta_color = "#888888"  # neutral fallback
+
+    if open_price is not None and price is not None:
+        distance = abs(price - open_price) / open_price
+
+        if price >= open_price:
+            delta_color = (
+                "#1b5e20" if distance > 0.015 else   # strong green
+                "#2e7d32" if distance > 0.008 else   # medium green
+                "#66bb6a"                            # light green
+            )
         else:
-            c6.write("₹0.0")
-
-        c7.write("OPEN")
-
-        if c8.button("❌ Exit", key=f"exit_{t['Trade ID']}"):
-            exit_price = ltp
-            exit_time = now_ist().strftime("%H:%M:%S")
-            pnl = round((exit_price - t["Entry"]) * t["Qty"], 2)
-
-            update_trade_in_csv(
-                t["Trade ID"],
-                {
-                    "Exit": exit_price,
-                    "PnL": pnl,
-                    "Exit Time": exit_time,
-                    "Status": "CLOSED",
-                }
+            delta_color = (
+                "#b71c1c" if distance > 0.015 else   # strong red
+                "#c62828" if distance > 0.008 else   # medium red
+                "#ef5350"                            # light red
             )
 
-            st.success(f"❌ {t['Symbol']} CLOSED | PnL ₹{pnl}")
+    # ---------- % CHANGE DISPLAY (UNDER DELTA) ----------
+    if pct_change is not None:
+        st.markdown(
+            f"""
+            <div style="
+                font-size:0.95rem;
+                color:{delta_color};
+                margin-top:-6px;
+                margin-bottom:4px;
+            ">
+                ({pct_change:+.2f}% vs Open)
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-            st.session_state.history = load_day_trades()
-            refresh_risk_from_history()
-            st.rerun()
-else:
-    st.info("No OPEN trades.")
+    # ---------- DAY RANGE PROGRESS BAR ----------
+    if range_pos is not None:
+        st.progress(
+            min(max(range_pos, 0.0), 1.0),
+            text=(
+                f"Day Range | "
+                f"Low {low_price:.2f}  "
+                f"Open {open_price:.2f}  "
+                f"High {high_price:.2f}"
+            )
+        )
 
-# =========================
-# CLOSED TRADES
-# =========================
-if closed_trades:
-    st.markdown("### 🔵 Closed Trades")
+    # =====================================================
+    # 📌 LIVE SNAPSHOT — TODAY RANGE + FUNDAMENTALS
+    # =====================================================
 
-    rows = []
-    for t in closed_trades:
-        rows.append({
-            "Symbol": t["Symbol"],
-            "Side": t["Side"],
-            "Qty": t["Qty"],
-            "Entry": t["Entry"],
-            "Exit": t["Exit"],
-            "PnL (₹)": t["PnL"],
-            "Entry Time": t["Entry Time"],
-            "Exit Time": t["Exit Time"],
-            "Strategy": t["Strategy"],
-        })
+    # ---------- TODAY OPEN / HIGH / LOW (from intraday data) ----------
+    today_open = today_high = today_low = None
 
-    st.dataframe(
-        pd.DataFrame(rows),
-        use_container_width=True,
-        hide_index=True
-    )
-else:
-    st.info("No CLOSED trades yet today.")
+    df_intraday = st.session_state.get("last_intraday_df")
 
-# =====================================================
-# 📊 TRADE ANALYTICS DASHBOARD
-# =====================================================
-# Always define df_trades safely
-df_trades = pd.DataFrame()
+    if df_intraday is not None and not df_intraday.empty:
+        today_open = df_intraday["Open"].iloc[0]
+        today_high = df_intraday["High"].max()
+        today_low = df_intraday["Low"].min()
 
-st.subheader("📊 Trade Analytics")
+    c1, c2, c3 = st.columns(3)
 
-closed_trades = [
-    t for t in st.session_state.history
-    if t.get("Status") == "CLOSED" and isinstance(t.get("PnL"), (int, float))
-]
+    c1.metric("Open", f"{today_open:.2f}" if today_open else "—")
+    c2.metric("High (Today)", f"{today_high:.2f}" if today_high else "—")
+    c3.metric("Low (Today)", f"{today_low:.2f}" if today_low else "—")
 
-if closed_trades:
-    df_trades = pd.DataFrame(closed_trades)
+    st.divider()
 
-    total_trades = len(df_trades)
-    wins = df_trades[df_trades["PnL"] > 0]
-    losses = df_trades[df_trades["PnL"] < 0]
+    # ---------- FUNDAMENTALS (SLOW-CHANGING, SAFE) ----------
+    # NOTE:
+    # Replace the placeholder fetch below with your preferred source
+    # (Yahoo Finance, NSE, Screener API, etc.)
 
-    win_rate = (len(wins) / total_trades) * 100
-    avg_win = wins["PnL"].mean() if not wins.empty else 0.0
-    avg_loss = losses["PnL"].mean() if not losses.empty else 0.0
+    @st.cache_data(ttl=3600)
+    def get_fundamentals(symbol):
+        """
+        Expected return dict keys:
+        market_cap, pe_ratio, dividend_yield, quarterly_dividend
+        """
+        return {
+            "market_cap": None,
+            "pe_ratio": None,
+            "dividend_yield": None,
+            "quarterly_dividend": None,
+        }
 
-    expectancy = (win_rate / 100) * avg_win + (1 - win_rate / 100) * avg_loss
+    fundamentals = get_fundamentals(stock)
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Trades", total_trades)
-    c2.metric("Win Rate %", f"{win_rate:.1f}%")
-    c3.metric("Avg Win (₹)", f"{avg_win:.2f}")
-    c4.metric("Avg Loss (₹)", f"{avg_loss:.2f}")
 
-    st.metric("📐 Expectancy (₹ / trade)", f"{expectancy:.2f}")
-
-else:
-    st.info("ℹ️ No CLOSED trades yet — analytics will appear after exits.")
-    
-# =====================================================
-# 📈 STRATEGY-WISE PERFORMANCE
-# =====================================================
-st.subheader("📈 Strategy-wise PnL")
-
-if not df_trades.empty:
-    strat_df = (
-        df_trades.groupby("Strategy", as_index=False)["PnL"]
-        .sum()
-        .sort_values("PnL", ascending=False)
+    c1.metric(
+        "Market Cap",
+        f"₹ {fundamentals['market_cap']:,} Cr"
+        if fundamentals["market_cap"] else "—"
     )
 
-    st.dataframe(strat_df, use_container_width=True, hide_index=True)
-else:
-    st.info("ℹ️ Strategy performance will appear after trades are CLOSED.")
-
-# =====================================================
-# ⏱ TIME-OF-DAY PERFORMANCE
-# =====================================================
-st.subheader("⏱ Time-of-Day Performance")
-
-if not df_trades.empty and "Entry Time" in df_trades.columns:
-    df_trades["Hour"] = pd.to_datetime(
-        df_trades["Entry Time"],
-        format="%H:%M:%S",
-        errors="coerce"
-    ).dt.hour
-
-    hour_pnl = (
-        df_trades.groupby("Hour", as_index=False)["PnL"]
-        .sum()
-        .rename(columns={"PnL": "Total PnL"})
+    c2.metric(
+        "P/E Ratio",
+        f"{fundamentals['pe_ratio']:.2f}"
+        if fundamentals["pe_ratio"] else "—"
     )
 
-    st.dataframe(hour_pnl, use_container_width=True)
-else:
-    st.info("ℹ️ Time-based stats will appear after trades are CLOSED.")
+    c3.metric(
+        "Dividend %",
+        f"{fundamentals['dividend_yield']:.2f}%"
+        if fundamentals["dividend_yield"] else "—"
+    )
 
-# =====================================================
-# HOW TO USE
-# =====================================================
-st.subheader("📘 How to Use This Dashboard")
+    c4.metric(
+        "Qtrly Dividend",
+        f"₹ {fundamentals['quarterly_dividend']:.2f}"
+        if fundamentals["quarterly_dividend"] else "—"
+    )
 
-with st.expander("Click to read"):
-    st.markdown("""
-• Pre-market → mark bias & levels  
-• First 15 min → observe ORB  
-• Trade only with confirmation  
-• Respect daily risk limits  
-• Review, don't revenge trade  
-""")
+    # =====================================================
+    # TOP METRICS
+    # =====================================================
+    st.subheader("📊 Top Metrics")
+
+    ltp = st.session_state.get("last_price_metric")
+    prev_close = st.session_state.get("prev_close")
+
+    change = pct_change = None
+    if ltp is not None and prev_close is not None:
+        change = round(ltp - prev_close, 2)
+        pct_change = round((change / prev_close) * 100, 2)
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("LTP", ltp if ltp is not None else "—")
+    c2.metric("Change", f"{change:+}" if change is not None else "—")
+    c3.metric("% Change", f"{pct_change:+}%" if pct_change is not None else "—")
+
+    st.divider()
+
+
+    # =====================================================
+    # INTRADAY CHART
+    # =====================================================
+
+    if "last_chart_ts" not in st.session_state:
+        st.session_state.last_chart_ts = 0
+
+    if time.time() - st.session_state.last_chart_ts > 25:
+        result = cached_intraday_data(stock)
+        st.session_state.last_chart_ts = time.time()
+    else:
+        result = (st.session_state.last_intraday_df, None)
+
+    if not isinstance(result, tuple) or len(result) != 2:
+        df, interval = None, None
+    else:
+        df, interval = result
+
+    interval_label = (
+        "3-Minute" if interval == "3m"
+        else "5-Minute" if interval == "5m"
+        else "Intraday"
+    )
+
+    # Intraday Chart header (LIVE only when market is OPEN)
+    if open_now:
+        st.markdown(
+            f"""
+            <div class="live-pulse">
+                📊 Intraday Chart ({interval_label})
+                <span class="live-dot"></span>
+                <span style="color:#00c853;">LIVE</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.subheader(
+            f"📊 Intraday Chart ({interval_label})",
+            help=SECTION_HELP["intraday_chart"]
+        )
+
+    if sanity_check_intraday(df, interval, stock):
+        df = cached_add_vwap(df)
+        st.session_state.last_intraday_df = df
+    else:
+        df = st.session_state.last_intraday_df
+        if df is not None:
+            st.info("ℹ️ Showing last stable intraday data")
+
+    # ============================================================
+    # SIDB v2.4.1 — Stable Intraday Chart Render (NO FLICKER)
+    # ============================================================
+
+    # Case 1: First-ever load → show placeholder
+    if st.session_state.last_intraday_df is None:
+        st.info("⏳ Waiting for intraday data…", icon="⏳")
+
+    # Case 2: We have a stable chart → ALWAYS show it
+    else:
+        fig = intraday_candlestick(
+            st.session_state.last_intraday_df,
+            stock,
+            interval_label
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    # =====================================================
+    # WHY THIS SIGNAL?
+    # =====================================================
+    if strategy == "ORB Breakout":
+        with st.expander("❓ Why this ORB signal?"):
+            st.markdown("""
+    • First 15 minutes define institutional bias  
+    • Break beyond ORB shows momentum  
+    • Works best with volume confirmation  
+    """)
+    else:
+        with st.expander("❓ Why VWAP matters here?"):
+            st.markdown("""
+    • VWAP is institutional fair value  
+    • Mean reversion works near VWAP  
+    • Avoid chasing extended moves  
+    """)
+
+    st.divider()
+
+
+    # =====================================================
+    # EDUCATIONAL OVERLAY
+    # =====================================================
+    with st.expander("🎓 Beginner Help: How to Read This Dashboard"):
+        st.markdown("""
+    • Candlesticks show price momentum  
+    • VWAP defines bias  
+    • ORB shows early direction  
+    • Volume confirms moves  
+    • Discipline > frequency  
+    """)
+
+    st.divider()
+
+
+    # =====================================================
+    # DAILY WATCHLIST
+    # =====================================================
+    st.subheader("🎯 Daily Watchlist", help="Auto-generated focus list for the day.")
+
+    today = now_ist().date()
+    watchlist = cached_daily_watchlist(
+        config.INDEX_MAP[index],
+        today
+    )
+    rows = []
+    for sym in watchlist:
+        p, sc = get_live_price_fast(sym)
+
+        rows.append({
+            "Stock": sym,
+            "Live Price": f"{p:.2f}" if p is not None else "—",
+            "Source": sc
+        })
+
+    st.dataframe(rows, use_container_width=True)
+
+    st.divider()
+
+
+    # =====================================================
+    # SUPPORT & RESISTANCE + LIVE CONTEXT
+    # =====================================================
+    st.subheader(
+        "📌 Live Support & Resistance",
+        help=SECTION_HELP["support_resistance"]
+    )
+
+    # --- Ensure levels are always defined FIRST ---
+    levels = st.session_state.get("levels", {})
+
+    last_price = st.session_state.get("last_price")
+
+    if price and price != last_price:
+        levels = calc_levels(price)
+        st.session_state.levels = levels
+        st.session_state.last_price = price
+
+    # --- Live support / resistance from intraday structure ---
+    live_support = None
+    live_resistance = None
+
+    if st.session_state.last_intraday_df is not None:
+        live_support = detect_live_support(
+            st.session_state.last_intraday_df
+        )
+        live_resistance = detect_live_resistance(
+            st.session_state.last_intraday_df
+        )
+
+    # --- Metrics display ---
+    c1, c2, c3, c4, c5 = st.columns(5)
+
+    c1.metric(
+        "Support",
+        levels.get("support", "—")
+    )
+    c2.metric("Resistance", levels.get("resistance", "—"))
+    c3.metric("ORB High", levels.get("orb_high", "—"))
+    c4.metric("ORB Low", levels.get("orb_low", "—"))
+    c5.metric(
+        "Live Resistance",
+        f"{live_resistance:.2f}" if live_resistance else "—",
+        help="Auto-detected from intraday swing highs"
+    )
+
+    # ---- Live Context (single, clean) ----
+    context_msgs = []
+
+    if price and levels and all(k in levels for k in ("support", "resistance", "orb_high", "orb_low")):
+        if abs(price - levels["resistance"]) / price < 0.003:
+            context_msgs.append("⚠️ Price near resistance — breakout or rejection zone.")
+        if abs(price - levels["support"]) / price < 0.003:
+            context_msgs.append("🟢 Price near support — potential demand zone.")
+        if price > levels["orb_high"]:
+            context_msgs.append("📈 Above ORB High — bullish momentum.")
+        if price < levels["orb_low"]:
+            context_msgs.append("📉 Below ORB Low — bearish momentum.")
+
+    if not context_msgs:
+        context_msgs.append("ℹ️ Price is between key intraday levels.")
+
+    with st.expander("ℹ️ Live Level Context (Auto-updating)"):
+        for msg in context_msgs:
+            st.markdown(f"- {msg}")
+
+    st.divider()
+
+
+    # =====================================================
+    # 🔔 ALERTS (PRICE + LEVEL BASED)
+    # =====================================================
+    alerts = []
+
+    if price and levels:
+        if price > levels.get("orb_high", float("inf")):
+            alerts.append("📈 ORB High Breakout")
+        if price < levels.get("orb_low", 0):
+            alerts.append("📉 ORB Low Breakdown")
+        if abs(price - levels.get("support", price)) / price < 0.002:
+            alerts.append("🟢 Near Support")
+        if abs(price - levels.get("resistance", price)) / price < 0.002:
+            alerts.append("🔴 Near Resistance")
+
+    new_alerts = []
+
+    for a in alerts:
+        if a not in st.session_state.alert_state:
+            new_alerts.append(a)
+            st.session_state.alert_state.add(a)
+
+    if new_alerts:
+        st.subheader(
+            "🔔 Alerts",
+            help=SECTION_HELP["alerts"]
+        )
+        for a in new_alerts:
+            st.warning(a)
+
+
+    # =====================================================
+    # INDEX OPTIONS SENTIMENT (PCR)
+    # =====================================================
+    st.subheader(
+        "🧾 Index Options Sentiment (PCR)",
+        help=SECTION_HELP["options_pcr"]
+    )
+
+    if "last_pcr_ts" not in st.session_state:
+        st.session_state.last_pcr_ts = 0
+
+    if time.time() - st.session_state.last_pcr_ts > 30:
+        index_pcr = cached_index_pcr()
+        st.session_state.last_pcr_ts = time.time()
+    else:
+        index_pcr = st.session_state.get("cached_index_pcr")
+
+    st.session_state.cached_index_pcr = index_pcr
+
+    status, color, explanation, action = index_pcr_status_action(index_pcr)
+
+    # --- PCR Metric ---
+    st.metric(
+        "Put–Call Ratio (Index)",
+        f"{index_pcr:.2f}" if index_pcr is not None else "—"
+    )
+
+    # --- Status ---
+    if color == "success":
+        st.success(f"🟢 Index Options Bias: {status}")
+    elif color == "error":
+        st.error(f"🔴 Index Options Bias: {status}")
+    elif color == "warning":
+        st.warning(f"⚠️ Index Options Bias: {status}")
+    else:
+        st.info(f"🔵 Index Options Bias: {status}")
+
+    # --- Explanation + Action (THIS IS WHAT YOU WANTED) ---
+    st.markdown("**📌 What this means:**")
+    st.write(explanation)
+
+    st.markdown("**🎯 Suggested Action:**")
+    st.write(action)
+
+    st.divider()
+
+    # =====================================================
+    # SAFE DEFAULTS (PREVENT NameError)
+    # =====================================================
+    # These ensure mobile / cloud users never crash the app
+    atm_df = None
+    df_options = None
+
+
+    # =====================================================
+    # NIFTY OPTIONS SENTIMENT — SAFE DEFAULT (OPTION 1)
+    # =====================================================
+
+    st.subheader("📊 NIFTY Options Sentiment")
+
+    fallback = get_fallback_options_snapshot()
+
+    # --- ALWAYS show fallback first ---
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Index", fallback["spot"])
+    c2.metric("PCR", fallback["pcr"])
+    c3.metric("Bias", fallback["bias"])
+
+    st.caption(
+        "📌 Data Type: Delayed / Educational\n"
+        "ℹ️ Suitable for mobile, cloud, and beginners.\n"
+        "ℹ️ Reflects market structure, NOT trade signals."
+    )
+
+    # --- OPTIONAL: Upgrade to LIVE only if truly possible ---
+    if IS_LOCAL_DESKTOP and cookie_status == "FRESH":
+        st.success("🖥 Desktop detected — attempting LIVE NSE options data")
+
+        try:
+            df_options, spot, expiry = cached_nifty_option_chain()
+
+            if df_options is not None and spot is not None:
+                atm_df, atm, pcr_atm, ce_oi, pe_oi = cached_atm_analysis(
+                    df_options, spot
+                )
+                sentiment = options_sentiment(pcr_atm, ce_oi, pe_oi)
+
+                st.divider()
+                st.markdown("### 🔴 LIVE NSE Options (Desktop Only)")
+
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Spot", spot)
+                c2.metric("ATM", atm)
+                c3.metric("PCR (ATM)", round(pcr_atm, 2))
+                c4.metric("Expiry", expiry)
+
+                st.markdown(f"**Market Bias:** {sentiment}")
+
+        except Exception:
+            st.info("ℹ️ LIVE NSE options unavailable. Showing fallback data.")
+
+    # =====================================================
+    # USER STATUS (CLEAN, NON-SCARY)
+    # =====================================================
+    if IS_LOCAL_DESKTOP and cookie_status != "FRESH":
+        st.info(
+            "ℹ️ Showing safe, delayed options sentiment.\n\n"
+            "Advanced users may enable LIVE NSE options using desktop browser cookies."
+        )
+
+
+    # =====================================================
+    # 📊 OI DOMINANCE (ATM ZONE)
+    # =====================================================
+    if atm_df is not None:
+        ce_oi = atm_df["ce_oi_chg"].sum()
+        pe_oi = atm_df["pe_oi_chg"].sum()
+
+        st.caption(
+            f"📊 OI Delta → CE: {ce_oi:+,.0f} | PE: {pe_oi:+,.0f}"
+        )
+
+    # =====================================================
+    # 🧠 STRATEGY CONTEXT (OPTIONS-AWARE)
+    # =====================================================
+    options_bias = "NEUTRAL"
+
+    if atm_df is not None:
+        pcr_atm = calculate_pcr(atm_df)
+        ce_oi = atm_df["ce_oi_chg"].sum()
+        pe_oi = atm_df["pe_oi_chg"].sum()
+
+        if pcr_atm is not None:
+            if pcr_atm > 1.1 and pe_oi > abs(ce_oi):
+                options_bias = "BULLISH"
+            elif pcr_atm < 0.9 and ce_oi > abs(pe_oi):
+                options_bias = "BEARISH"
+
+    st.caption(f"🧠 Options Bias: **{options_bias}**")
+
+
+    # =====================================================
+    # 🔔 OPTIONS-BASED ALERTS
+    # =====================================================
+    options_alerts = []
+
+    if atm_df is not None:
+
+        # Ensure values are always defined
+        pcr_atm = calculate_pcr(atm_df)
+        ce_oi = atm_df["ce_oi_chg"].sum()
+        pe_oi = atm_df["pe_oi_chg"].sum()
+
+        # Strong bullish options activity
+        if pcr_atm >= 1.2 and pe_oi > 100_000:
+            options_alerts.append("🟢 Strong PUT Writing (Bullish Options Activity)")
+
+        # Strong bearish options activity
+        if pcr_atm <= 0.8 and ce_oi > 100_000:
+            options_alerts.append("🔴 Strong CALL Writing (Bearish Options Activity)")
+
+        # Volatility expansion
+        if ce_oi > 100_000 and pe_oi > 100_000:
+            options_alerts.append("⚠️ Volatility Expansion (Both CE & PE OI Rising)")
+
+        # OI unwinding
+        if ce_oi < -100_000 and pe_oi < -100_000:
+            options_alerts.append("🟡 OI Unwinding (Positions Closing)")
+
+        # Options bias flip alert
+        last_bias = st.session_state.last_options_bias
+        if last_bias and last_bias != options_bias:
+            options_alerts.append(
+                f"🔄 Options Bias Shift: {last_bias} → {options_bias}"
+            )
+
+        # Persist latest bias
+        st.session_state.last_options_bias = options_bias
+
+
+    # Show only NEW options alerts
+    new_options_alerts = []
+    for a in options_alerts:
+        if a not in st.session_state.alert_state:
+            new_options_alerts.append(a)
+            st.session_state.alert_state.add(a)
+
+    if new_options_alerts:
+        st.subheader("🔔 Options-Based Alerts")
+        for a in new_options_alerts:
+            st.warning(a)
+
+    st.caption(
+        "ℹ️ Trade status reflects *rule validation*, not a recommendation to trade."
+    )
+
+    # =====================================================
+    # 📈 TRADE DECISION ENGINE (RULE + ML ADVISORY)
+    # =====================================================
+    st.subheader(
+        "📈 Trade Decision Engine",
+        help=SECTION_HELP["trade_decision"]
+    )
+
+    # -------------------------------
+    # Risk Status
+    # -------------------------------
+    risk_status = risk_ok(
+        st.session_state.trades,
+        max_trades,
+        st.session_state.pnl,
+        max_loss
+    )
+
+    # -------------------------------
+    # RULE-BASED CONFIDENCE
+    # -------------------------------
+    confidence_score = None
+    confidence_reasons = {}
+
+    vwap_slope = 0
+    trend_alignment = "NONE"
+
+    df_tc = st.session_state.get("last_intraday_df")
+
+    if price is not None and df_tc is not None and not df_tc.empty:
+
+        # VWAP slope (last 5 candles)
+        vwap_series = df_tc["VWAP"].tail(5)
+        if len(vwap_series) >= 2:
+            vwap_slope = (
+                vwap_series.iloc[-1] - vwap_series.iloc[0]
+            ) / vwap_series.iloc[-1]
+
+        # Trend structure
+        highs = df_tc["High"].tail(5)
+        lows = df_tc["Low"].tail(5)
+
+        hh = (highs.diff() > 0).sum()
+        hl = (lows.diff() > 0).sum()
+
+        if hh >= 3 and hl >= 3:
+            trend_alignment = "STRONG"
+        elif hh >= 2:
+            trend_alignment = "MILD"
+
+        direction = "BUY" if options_bias != "BEARISH" else "SELL"
+
+        confidence_score, confidence_reasons = calculate_trade_confidence({
+            "price": price,
+            "vwap": df_tc["VWAP"].iloc[-1],
+            "vwap_slope": vwap_slope,
+            "orb_signal": (
+                "CONFIRMED"
+                if price > levels.get("orb_high", float("inf"))
+                else "NONE"
+            ),
+            "trend_alignment": trend_alignment,
+            "pcr": index_pcr,
+            "direction": direction
+        })
+
+    # -------------------------------
+    # ML SETUP QUALITY (ADVISORY ONLY)
+    # -------------------------------
+    ml_score = None
+
+    if confidence_score is not None:
+        try:
+            features = build_feature_vector({
+                "price": price,
+                "vwap": df_tc["VWAP"].iloc[-1],
+                "vwap_slope": vwap_slope,
+                "support": levels.get("support"),
+                "resistance": levels.get("resistance"),
+                "above_orb_high": price > levels.get("orb_high", float("inf")),
+                "below_orb_low": price < levels.get("orb_low", 0),
+                "trend_strength": (
+                    2 if trend_alignment == "STRONG"
+                    else 1 if trend_alignment == "MILD"
+                    else 0
+                ),
+                "index_pcr": index_pcr if index_pcr else 1.0,
+                "options_bias": (
+                    1 if options_bias == "BULLISH"
+                    else -1 if options_bias == "BEARISH"
+                    else 0
+                ),
+                "minutes_since_open": int(
+                    (now_ist().timestamp() - df_tc.index[0].timestamp()) / 60
+                ),
+                "trades_today": st.session_state.trades,
+                "current_pnl": st.session_state.pnl,
+            })
+            ml_score = score_setup(features)
+        except Exception:
+            ml_score = None
+
+    # -------------------------------
+    # ML FEATURE EXPLANATION
+    # -------------------------------
+    if ml_score is not None and features is not None:
+
+        with st.expander("🧠 Why ML rated this setup this way?"):
+
+            st.markdown("**Key inputs used by ML:**")
+
+            st.write(f"- Price vs VWAP: {'Above' if features['price'] > features['vwap'] else 'Below'}")
+            st.write(f"- VWAP Slope: {features['vwap_slope']:.4f}")
+            st.write(f"- Trend Strength: {features['trend_strength']} (0=Weak, 2=Strong)")
+            st.write(f"- Above ORB High: {features['above_orb_high']}")
+            st.write(f"- Below ORB Low: {features['below_orb_low']}")
+            st.write(f"- Index PCR: {features['index_pcr']:.2f}")
+            st.write(f"- Options Bias: {features['options_bias']}")
+            st.write(f"- Trades Today: {features['trades_today']}")
+            st.write(f"- Current PnL: ₹{features['current_pnl']:.2f}")
+
+            st.caption(
+                "ML compares this structure to historically profitable vs unprofitable setups."
+            )
+
+    # -------------------------------
+    # FINAL TRADE GATE
+    # -------------------------------
+    allowed, reason = trade_decision(
+        open_now,
+        risk_status,
+        index_pcr,
+        price,
+        levels.get("resistance", 0),
+        options_bias=options_bias,
+        confidence_score=confidence_score
+    )
+
+    # -------------------------------
+    # UI OUTPUT
+    # -------------------------------
+    if allowed:
+        st.markdown(
+            "<div class='trade-allowed'>✅ TRADE CONDITION SATISFIED</div>",
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            f"<div class='trade-blocked'>🚫 TRADE BLOCKED<br>{reason}</div>",
+            unsafe_allow_html=True
+        )
+
+    # -------------------------------
+    # CONFIDENCE DISPLAY
+    # -------------------------------
+    if confidence_score is not None:
+        st.markdown(f"#### 🎯 Rule-Based Confidence: {confidence_score}/100")
+        st.progress(confidence_score / 100)
+        st.markdown(
+            f"**Level:** {confidence_label(confidence_score)}"
+        )
+
+        with st.expander("Why this setup?"):
+            for k, v in confidence_reasons.items():
+                st.write(f"- **{k}**: {v}")
+
+    # -------------------------------
+    # ML DISPLAY (ADVISORY — ENHANCED)
+    # -------------------------------
+    if ml_score is not None:
+
+        ml_pct = int(ml_score * 100)
+
+        if ml_pct >= 70:
+            ml_color = "#1b5e20"   # dark green
+            ml_label = "STRONG"
+        elif ml_pct >= 45:
+            ml_color = "#f9a825"   # amber
+            ml_label = "AVERAGE"
+        else:
+            ml_color = "#b71c1c"   # red
+            ml_label = "WEAK"
+
+        st.markdown(
+            f"""
+            <div style="
+                border-left: 6px solid {ml_color};
+                background: #f9f9f9;
+                padding: 10px 14px;
+                border-radius: 6px;
+                margin-top: 6px;
+            ">
+                <strong>🤖 ML Setup Quality</strong><br>
+                <span style="font-size:1.4rem; color:{ml_color};">
+                    {ml_pct}/100 — {ml_label}
+                </span>
+                <br>
+                <span style="font-size:0.9rem; color:#555;">
+                    ML is advisory only. Rules always override ML.
+                </span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    # =====================================================
+    # 🧪 PAPER TRADE SIMULATOR (EXECUTION CONTROLS)
+    # =====================================================
+    st.subheader(
+        "🧪 Paper Trade Simulator",
+        help=SECTION_HELP["paper_trade"]
+    )
+
+    ltp = st.session_state.get("last_price_metric")
+
+    qty = st.number_input(
+        "Quantity (Lots / Units)",
+        min_value=1,
+        step=1
+    )
+
+    col1, col2 = st.columns(2)
+
+    # -------------------------
+    # BUY
+    # -------------------------
+    with col1:
+        if st.button("📈 BUY (Paper Trade)", use_container_width=True):
+
+            if not allowed:
+                st.error(f"❌ Trade blocked: {reason}")
+            elif ltp is None:
+                st.error("❌ Live price unavailable.")
+            else:
+                trade_id = generate_trade_id()
+                entry_time = now_ist().strftime("%H:%M:%S")
+
+                trade_row = {
+                    "Trade ID": trade_id,
+                    "Date": get_trade_date(),
+                    "Symbol": stock,
+                    "Side": "BUY",
+                    "Entry": round(ltp, 2),
+                    "Exit": None,
+                    "Qty": qty,
+                    "PnL": 0.0,
+                    "Entry Time": entry_time,
+                    "Exit Time": None,
+                    "Strategy": strategy,
+                    "Options Bias": options_bias,
+                    "Market Status": "OPEN",
+                    "Notes": "",
+                    "Status": "OPEN",
+                }
+
+                append_trade(trade_row)
+
+                st.success(f"📈 BUY executed | {stock} @ {ltp}")
+
+                # 🔁 Reload + recompute risk
+                st.session_state.history = load_day_trades()
+                refresh_risk_from_history()
+                st.rerun()
+
+    # -------------------------
+    # EXIT (LATEST OPEN)
+    # -------------------------
+    with col2:
+        if st.button("❌ EXIT POSITION", use_container_width=True):
+
+            open_trades = [
+                t for t in load_day_trades()
+                if t["Symbol"] == stock and t["Status"] == "OPEN"
+            ]
+
+            if not open_trades:
+                st.warning("No open position for this stock.")
+            elif ltp is None:
+                st.error("❌ Live price unavailable.")
+            else:
+                t = open_trades[-1]  # exit latest open trade
+                pnl = round((ltp - t["Entry"]) * t["Qty"], 2)
+                exit_time = now_ist().strftime("%H:%M:%S")
+
+                update_trade_in_csv(
+                    t["Trade ID"],
+                    {
+                        "Exit": ltp,
+                        "PnL": pnl,
+                        "Exit Time": exit_time,
+                        "Status": "CLOSED",
+                    }
+                )
+
+                st.success(f"❌ {stock} CLOSED | PnL ₹{pnl}")
+
+                # 🔁 Reload + recompute risk
+                st.session_state.history = load_day_trades()
+                refresh_risk_from_history()
+                st.rerun()
+
+    # =====================================================
+    # 📋 PAPER TRADES – TODAY (OPEN + CLOSED)
+    # =====================================================
+    st.subheader("📋 Paper Trades – Today")
+
+    trades_today = load_day_trades()
+    ltp = st.session_state.get("last_price_metric")
+
+    open_trades = [t for t in trades_today if t["Status"] == "OPEN"]
+    closed_trades = [t for t in trades_today if t["Status"] == "CLOSED"]
+
+    # =====================================================
+    # NET LIVE PnL (ALL OPEN TRADES)
+    # =====================================================
+    if open_trades and ltp is not None:
+        net_live_pnl = sum(
+            (ltp - t["Entry"]) * t["Qty"]
+            for t in open_trades
+            if isinstance(t.get("Entry"), (int, float))
+        )
+
+        color = (
+            "green" if net_live_pnl > 0
+            else "red" if net_live_pnl < 0
+            else "gray"
+        )
+
+        st.markdown(
+            f"""
+            <h3 style="color:{color}; margin-bottom:0;">
+                📈 Net Live PnL (Open Trades): ₹{net_live_pnl:.2f}
+            </h3>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.divider()
+
+
+    # =========================
+    # OPEN TRADES
+    # =========================
+    if open_trades:
+        st.markdown("### 🟢 Open Trades")
+
+        # ✅ Column headers (ADD HERE — once)
+        h1, h2, h3, h4, h5, h6, h7, h8 = st.columns(
+            [1.2, 0.8, 0.6, 1, 1, 0.8, 0.9, 1.2]
+        )
+        h1.markdown("**Symbol**")
+        h2.markdown("**Side**")
+        h3.markdown("**Qty**")
+        h4.markdown("**Entry**")
+        h5.markdown("**Live Price**")
+        h6.markdown("**Live PnL (₹)**")
+        h7.markdown("**Status**")
+        h8.markdown("**Action**")
+
+        for t in open_trades:
+            live_pnl = None
+            if ltp is not None:
+                live_pnl = round((ltp - t["Entry"]) * t["Qty"], 2)
+
+            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
+                [1.2, 0.8, 0.6, 1, 1, 0.8, 0.9, 1.2]
+            )
+
+            c1.write(t["Symbol"])
+            c2.write(t["Side"])
+            c3.write(t["Qty"])
+            c4.write(t["Entry"])
+            c5.write(ltp if ltp is not None else "—")
+            if live_pnl is None:
+                c6.write("—")
+            elif live_pnl > 0:
+                c6.markdown(f"<span style='color:green;'>+₹{live_pnl}</span>", unsafe_allow_html=True)
+            elif live_pnl < 0:
+                c6.markdown(f"<span style='color:red;'>₹{live_pnl}</span>", unsafe_allow_html=True)
+            else:
+                c6.write("₹0.0")
+
+            c7.write("OPEN")
+
+            if c8.button("❌ Exit", key=f"exit_{t['Trade ID']}"):
+                exit_price = ltp
+                exit_time = now_ist().strftime("%H:%M:%S")
+                pnl = round((exit_price - t["Entry"]) * t["Qty"], 2)
+
+                update_trade_in_csv(
+                    t["Trade ID"],
+                    {
+                        "Exit": exit_price,
+                        "PnL": pnl,
+                        "Exit Time": exit_time,
+                        "Status": "CLOSED",
+                    }
+                )
+
+                st.success(f"❌ {t['Symbol']} CLOSED | PnL ₹{pnl}")
+
+                st.session_state.history = load_day_trades()
+                refresh_risk_from_history()
+                st.rerun()
+    else:
+        st.info("No OPEN trades.")
+
+    # =========================
+    # CLOSED TRADES
+    # =========================
+    if closed_trades:
+        st.markdown("### 🔵 Closed Trades")
+
+        rows = []
+        for t in closed_trades:
+            rows.append({
+                "Symbol": t["Symbol"],
+                "Side": t["Side"],
+                "Qty": t["Qty"],
+                "Entry": t["Entry"],
+                "Exit": t["Exit"],
+                "PnL (₹)": t["PnL"],
+                "Entry Time": t["Entry Time"],
+                "Exit Time": t["Exit Time"],
+                "Strategy": t["Strategy"],
+            })
+
+        st.dataframe(
+            pd.DataFrame(rows),
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("No CLOSED trades yet today.")
+
+    # =====================================================
+    # 📊 TRADE ANALYTICS DASHBOARD
+    # =====================================================
+    # Always define df_trades safely
+    df_trades = pd.DataFrame()
+
+    st.subheader("📊 Trade Analytics")
+
+    closed_trades = [
+        t for t in st.session_state.history
+        if t.get("Status") == "CLOSED" and isinstance(t.get("PnL"), (int, float))
+    ]
+
+    if closed_trades:
+        df_trades = pd.DataFrame(closed_trades)
+
+        total_trades = len(df_trades)
+        wins = df_trades[df_trades["PnL"] > 0]
+        losses = df_trades[df_trades["PnL"] < 0]
+
+        win_rate = (len(wins) / total_trades) * 100
+        avg_win = wins["PnL"].mean() if not wins.empty else 0.0
+        avg_loss = losses["PnL"].mean() if not losses.empty else 0.0
+
+        expectancy = (win_rate / 100) * avg_win + (1 - win_rate / 100) * avg_loss
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Total Trades", total_trades)
+        c2.metric("Win Rate %", f"{win_rate:.1f}%")
+        c3.metric("Avg Win (₹)", f"{avg_win:.2f}")
+        c4.metric("Avg Loss (₹)", f"{avg_loss:.2f}")
+
+        st.metric("📐 Expectancy (₹ / trade)", f"{expectancy:.2f}")
+
+    else:
+        st.info("ℹ️ No CLOSED trades yet — analytics will appear after exits.")
+
+    # =====================================================
+    # 📈 STRATEGY-WISE PERFORMANCE
+    # =====================================================
+    st.subheader("📈 Strategy-wise PnL")
+
+    if not df_trades.empty:
+        strat_df = (
+            df_trades.groupby("Strategy", as_index=False)["PnL"]
+            .sum()
+            .sort_values("PnL", ascending=False)
+        )
+
+        st.dataframe(strat_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("ℹ️ Strategy performance will appear after trades are CLOSED.")
+
+    # =====================================================
+    # ⏱ TIME-OF-DAY PERFORMANCE
+    # =====================================================
+    st.subheader("⏱ Time-of-Day Performance")
+
+    if not df_trades.empty and "Entry Time" in df_trades.columns:
+        df_trades["Hour"] = pd.to_datetime(
+            df_trades["Entry Time"],
+            format="%H:%M:%S",
+            errors="coerce"
+        ).dt.hour
+
+        hour_pnl = (
+            df_trades.groupby("Hour", as_index=False)["PnL"]
+            .sum()
+            .rename(columns={"PnL": "Total PnL"})
+        )
+
+        st.dataframe(hour_pnl, use_container_width=True)
+    else:
+        st.info("ℹ️ Time-based stats will appear after trades are CLOSED.")
+
+    # =====================================================
+    # HOW TO USE
+    # =====================================================
+    st.subheader("📘 How to Use This Dashboard")
+
+    with st.expander("Click to read"):
+        st.markdown("""
+    • Pre-market → mark bias & levels  
+    • First 15 min → observe ORB  
+    • Trade only with confirmation  
+    • Respect daily risk limits  
+    • Review, don't revenge trade  
+    """)
