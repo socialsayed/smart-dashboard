@@ -859,6 +859,7 @@ with tabs[0]:
         key="stock"
     )
 
+
     # =====================================================
     # SIDEBAR – RISK LIMITS
     # =====================================================
@@ -1072,25 +1073,59 @@ with tabs[0]:
 
     if scanner_mode == "Manual Stock":
         st.info(
-            "ℹ️ Manual Stock scanning is currently **disabled**.\n\n"
-            "You can still analyze charts, levels, VWAP, and options sentiment below."
+            "🔧 **Manual mode enabled** — enter a symbol or partial company name in the sidebar. "
+            "If the input isn’t recognised it will still be scanned verbatim, but results may be empty."
         )
 
+    # helper for manual lookup (symbol or partial name)
+    def _resolve_manual(query: str) -> str | None:
+        """Convert free‑text entry into a ticker symbol.
 
-    manual_symbol = None
+        * Treats empty input as ``None``.
+        * Upper‑cases and strips spaces so ``"Tata Motors"`` → ``"TATAMOTORS"``.
+        * Searches ``config.INDEX_MAP`` for an exact or prefix match (not a
+          general substring) to avoid accidental hits like ``"foo" →
+          "JUBLFOOD"``.
+        * If nothing is found it simply returns the upper‑cased query; this
+          lets users scan symbols outside the hard‑coded lists.
+        """
+        if not query:
+            return None
+        q = query.strip().upper().replace(" ", "")
+        for symbols in config.INDEX_MAP.values():
+            for sym in symbols:
+                if q == sym or sym.startswith(q):
+                    return sym
+        # no match – return the user's upper‑cased input so the scanner can
+        # still attempt a lookup on arbitrary tickers
+        return query.strip().upper()
+
+    manual_symbol: str | None = None
     if scanner_mode == "Manual Stock":
-        st.sidebar.text_input(
-        "Enter Stock Symbol",
-        placeholder="Manual mode not live yet",
-        disabled=True
-    )
+        manual_symbol = st.sidebar.text_input(
+            "Enter Stock Symbol or partial name",
+            placeholder="e.g. RELIANCE or Tata Motors",
+        )
 
-        if manual_symbol == "":
+        if manual_symbol:
+            resolved = _resolve_manual(manual_symbol)
+            if resolved != manual_symbol.strip().upper():
+                st.sidebar.caption(f"🔍 resolved to `{resolved}` from input `{manual_symbol}`")
+            manual_symbol = resolved
+        else:
             manual_symbol = None
 
+        # when manual symbol provided we simply override the local
+        # ``stock`` variable; there's no need to touch session_state, and
+        # trying to modify it after the selectbox is created triggers the
+        # StreamlitAPIException you saw.
+        if manual_symbol:
+            stock = manual_symbol
+
+        # a gentle reminder that manual scans are experimental
         st.sidebar.caption(
-            "ℹ️ Manual Stock scanning is **not live yet**. "
-            "This option is for **structure viewing only**."
+            "ℹ️ Manual symbol scanning is enabled, but results may not be "
+            "accurate for names not in the index map."
         )
 
     # =====================================================
@@ -1112,7 +1147,11 @@ with tabs[0]:
     )
 
     elif scanner_mode == "Manual Stock":
-        scan_symbols = []  # 🔒 Scanner disabled intentionally
+        # manual_symbol was resolved earlier; if present include it
+        if manual_symbol:
+            scan_symbols = [manual_symbol]
+        else:
+            scan_symbols = []  # nothing entered
 
     # =====================================================
     # MARKET STATUS
