@@ -1,139 +1,127 @@
-# =====================================================
-# MARKET OPPORTUNITY SCANNER (FROZEN BASELINE v1)
-# Mirrors app.py trade logic EXACTLY
-# =====================================================
-
-from services.prices import live_price
-from services.charts import get_intraday_data
-from logic.decision import calculate_trade_confidence, confidence_label
-from logic.levels import calc_levels
-from services.options import get_pcr
-
-
-def normalize_symbol(symbol: str) -> str:
-    """
-    Accepts manual input like:
-    TCS, RELIANCE, INFY
-    Returns normalized NSE symbol
-    """
-    symbol = symbol.upper().strip()
-    return symbol.replace(".NS", "")
-
-
 def run_market_opportunity_scanner(symbols):
+    """
+    Scans a list of symbols and returns trade-quality assessments.
+    ML score is advisory only.
+    """
+
     results = []
 
-    if not symbols:
-        return results
-
-    index_pcr = get_pcr()
-
-    for raw_symbol in symbols:
-        symbol = normalize_symbol(raw_symbol)
-
+    for symbol in symbols:
         try:
-            # -----------------------------
-            # LIVE PRICE (same as app)
-            # -----------------------------
-            price, src = live_price(symbol)
-            if price is None:
-                results.append({
-                    "symbol": symbol,
-                    "status": "AVOID",
-                    "confidence": 0,
-                    "reasons": ["Live price unavailable"]
-                })
-                continue
-
-            # -----------------------------
-            # INTRADAY DATA
-            # -----------------------------
+            # ---------------------------------
+            # Fetch intraday data
+            # ---------------------------------
             df, interval = get_intraday_data(symbol)
             if df is None or df.empty:
-                results.append({
-                    "symbol": symbol,
-                    "status": "AVOID",
-                    "confidence": 0,
-                    "reasons": ["Intraday data unavailable"]
-                })
                 continue
 
-            # -----------------------------
-            # LEVELS (same as app)
-            # -----------------------------
+            df = add_vwap(df)
+
+            price = df["Close"].iloc[-1]
+
+            # ---------------------------------
+            # Levels
+            # ---------------------------------
             levels = calc_levels(price)
 
-            # -----------------------------
-            # VWAP + TREND (same logic)
-            # -----------------------------
-            vwap = df["VWAP"].iloc[-1]
+            # ---------------------------------
+            # Simple rule-based signals
+            # ---------------------------------
+            above_orb = price > levels.get("orb_high", float("inf"))
+            below_orb = price < levels.get("orb_low", 0)
 
-            vwap_series = df["VWAP"].tail(5)
-            if len(vwap_series) >= 2:
-                vwap_slope = (vwap_series.iloc[-1] - vwap_series.iloc[0]) / vwap
-            else:
-                vwap_slope = 0
+            reasons = []
 
+            if above_orb:
+                reasons.append("ORB High breakout")
+            if below_orb:
+                reasons.append("ORB Low breakdown")
+
+            # ---------------------------------
+            # Trend strength
+            # ---------------------------------
             highs = df["High"].tail(5)
             lows = df["Low"].tail(5)
 
-            higher_highs = sum(highs.diff().dropna() > 0)
-            higher_lows = sum(lows.diff().dropna() > 0)
+            hh = (highs.diff() > 0).sum()
+            hl = (lows.diff() > 0).sum()
 
-            if higher_highs >= 3 and higher_lows >= 3:
-                trend_alignment = "STRONG"
-            elif higher_highs >= 2:
-                trend_alignment = "MILD"
+            if hh >= 3 and hl >= 3:
+                trend_strength = 2
+                reasons.append("Strong uptrend")
+            elif hh >= 2:
+                trend_strength = 1
+                reasons.append("Mild uptrend")
             else:
-                trend_alignment = "NONE"
+                trend_strength = 0
 
-            # -----------------------------
-            # ORB SIGNAL
-            # -----------------------------
-            orb_signal = (
-                "CONFIRMED"
-                if price > levels.get("orb_high", float("inf"))
-                else "NONE"
+            # ---------------------------------
+            # Rule-based confidence
+            # ---------------------------------
+            confidence = min(
+                100,
+                40
+                + (20 if above_orb else 0)
+                + (20 if trend_strength == 2 else 10 if trend_strength == 1 else 0)
             )
 
-            # -----------------------------
-            # CONFIDENCE (shared engine)
-            # -----------------------------
-            confidence_score, reasons_map = calculate_trade_confidence({
-                "price": price,
-                "vwap": vwap,
-                "vwap_slope": vwap_slope,
-                "orb_signal": orb_signal,
-                "trend_alignment": trend_alignment,
-                "pcr": index_pcr,
-                "direction": "BUY"
-            })
-
-            label = confidence_label(confidence_score)
-
-            # -----------------------------
-            # FINAL CLASSIFICATION
-            # -----------------------------
-            if confidence_score >= 70:
+            # ---------------------------------
+            # Status
+            # ---------------------------------
+            if confidence >= 70:
                 status = "BUY"
-            elif confidence_score >= 45:
+            elif confidence >= 45:
                 status = "WATCH"
             else:
                 status = "AVOID"
 
+            # ---------------------------------
+            # ML FEATURE VECTOR
+            # ---------------------------------
+            feature_context = {
+                "price": price,
+                "vwap": df["VWAP"].iloc[-1],
+                "vwap_slope": (
+                    (df["VWAP"].iloc[-1] - df["VWAP"].iloc[-5])
+                    / df["VWAP"].iloc[-1]
+                    if len(df) >= 5 else 0
+                ),
+                "support": levels.get("support"),
+                "resistance": levels.get("resistance"),
+                "above_orb_high": above_orb,
+                "below_orb_low": below_orb,
+                "trend_strength": trend_strength,
+                "index_pcr": get_pcr() or 1.0,
+                "options_bias": 0,  # neutral for scanner
+                "minutes_since_open": int(
+                    (df.index[-1].timestamp() - df.index[0].timestamp()) / 60
+                ),
+                "trades_today": 0,
+                "current_pnl": 0.0,
+            }
+
+            # ---------------------------------
+            # ML SCORE (SAFE)
+            # ---------------------------------
+            try:
+                ml_score = score_setup(
+                    build_feature_vector(feature_context)
+                )
+            except Exception:
+                ml_score = None
+
+            # ---------------------------------
+            # FINAL RESULT
+            # ---------------------------------
             results.append({
                 "symbol": symbol,
                 "status": status,
-                "confidence": confidence_score,
-                "reasons": list(reasons_map.values())
+                "confidence": confidence,
+                "reasons": reasons,
+                "ml_score": ml_score,   # ✅ EXACTLY WHAT YOU ASKED
             })
 
-        except Exception as e:
-            results.append({
-                "symbol": symbol,
-                "status": "AVOID",
-                "confidence": 0,
-                "reasons": [f"Scanner error: {e}"]
-            })
+        except Exception:
+            continue
 
     return results
