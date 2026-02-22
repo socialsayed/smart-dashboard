@@ -2375,5 +2375,3 @@ with st.expander("Click to read"):
 • Respect daily risk limits  
 • Review, don't revenge trade  
 """)
-
-
