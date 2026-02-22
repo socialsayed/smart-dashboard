@@ -592,6 +592,33 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# ---------- make `st.info` boxes readable in light & dark themes (and regulatory box) ----------
+st.markdown(
+    """
+    <style>
+    /* style alerts for contrast */
+    @media (prefers-color-scheme: dark) {
+        .stAlert, .stAlertInfo, .stAlert *, .stAlertInfo *, #regulatory-box {
+            color: #fff !important;
+            background-color: #333 !important;
+        }
+    }
+    @media (prefers-color-scheme: light) {
+        .stAlert, .stAlertInfo, .stAlert *, .stAlertInfo *, #regulatory-box {
+            color: #000 !important;
+            background-color: #eee !important;
+        }
+    }
+    /* ensure container also inherits */
+    .stAlert, .stAlertInfo, #regulatory-box {
+        color: inherit !important;
+        background-color: inherit !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # =====================================================
 # DISCLAIMER
 # =====================================================
@@ -790,8 +817,7 @@ with tabs[0]:
 
     st.markdown(
         """
-        <div style="
-            background-color: #f5f7fa;
+        <div id="regulatory-box" style="
             border-left: 6px solid #455a64;
             padding: 14px 16px;
             margin: 12px 0;
@@ -847,17 +873,21 @@ with tabs[0]:
         help="Select index and stock. All data updates automatically."
     )
 
+    # keep track of the last stock we fetched data for so we can
+    # invalidate caches when the user switches symbols (including manual mode)
+    if "last_stock" not in st.session_state:
+        st.session_state.last_stock = None
+
     index = st.sidebar.selectbox(
         "Select Index",
         options=list(config.INDEX_MAP.keys()),
         key="index"
     )
 
-    stock = st.sidebar.selectbox(
-        "Select Stock",
-        options=config.INDEX_MAP[index],
-        key="stock"
-    )
+    # ``stock`` will be determined a bit later once we know whether the
+    # user is in Manual Stock mode.  Use the session state default for now
+    # so the variable always exists for subsequent code.
+    stock = st.session_state.get("stock", config.INDEX_MAP[index][0])
 
 
     # =====================================================
@@ -1128,6 +1158,36 @@ with tabs[0]:
             "accurate for names not in the index map."
         )
 
+    # after the scanner mode block we can finally render the stock control.
+    # even when a manual symbol is supplied we continue to use a selectbox
+    # (rather than a disabled text field) to avoid confusion – the manual
+    # value is simply prepended to the options list and forced to index 0.
+    if scanner_mode == "Manual Stock" and manual_symbol:
+        st.sidebar.write("**SCANNING MANUAL STOCK:**")
+        stock_options = [manual_symbol] + [s for s in config.INDEX_MAP[index] if s != manual_symbol]
+        stock = st.sidebar.selectbox(
+            "Select Stock",
+            options=stock_options,
+            index=0,  # ensure the manual value is selected
+            key="stock",
+        )
+    else:
+        stock = st.sidebar.selectbox(
+            "Select Stock",
+            options=config.INDEX_MAP[index],
+            key="stock"
+        )
+
+    # if the stock has changed since last run, clear any cached intraday
+    # dataframe so we fetch fresh data. also reset the price metric.
+    if stock != st.session_state.last_stock:
+        st.session_state.last_intraday_df = None
+        st.session_state.last_price_metric = None
+        st.session_state.last_stock = stock
+
+    # warn if manual stock is entered but no live data can be found later
+    # (this message is shown after the price fetch below)
+
     # =====================================================
     # 🔧 SCANNER SYMBOL SELECTION (FIXED)
     # =====================================================
@@ -1306,8 +1366,16 @@ with tabs[0]:
     # 🔥 UPDATE LAST PRICE AFTER UI RENDER
     if price is not None:
         st.session_state.last_price_metric = price
+    else:
+        st.warning(
+            "⚠️ Unable to fetch live price for the selected symbol. "
+            "The ticker may be invalid, delisted, or data source is down."
+        )
 
     st.divider()
+
+    # if the intraday dataframe is empty later we will show a separate
+    # warning further down; clearing here ensures we notice it quickly
 
     # =====================================================
     # 📈 LIVE PRICE CONTEXT — % vs OPEN + DAY RANGE BAR
@@ -1330,6 +1398,12 @@ with tabs[0]:
         # Day range position (0 → 1)
         if high_price > low_price:
             range_pos = (price - low_price) / (high_price - low_price)
+    else:
+        # no intraday data available for this stock
+        st.warning(
+            "⚠️ No intraday data available; the symbol may not exist or is "
+            "delisted. Day range and related metrics cannot be calculated."
+        )
 
     # ---------- Color intensity based on distance from OPEN ----------
     delta_color = "#888888"  # neutral fallback
