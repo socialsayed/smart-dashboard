@@ -1,142 +1,125 @@
-# =====================================================
-# UNIFIED TRADE EVALUATION PIPELINE
-# SINGLE SOURCE OF TRUTH
-# =====================================================
+"""
+Trade setup evaluation logic.
+Used by app.py to validate trade conditions and build context snapshots.
 
-from logic.decision import (
-    trade_decision,
-    calculate_trade_confidence,
-    confidence_label,
-)
-from logic.risk import risk_ok
-from logic.levels import calc_levels
+IMPORTANT DESIGN RULE:
+- Indicators are OPTIONAL
+- Validation must NEVER crash
+- Output contract is FROZEN
+"""
+
+from typing import Dict, List
 
 
-def _build_indicator_snapshot(df, price):
+def _build_indicator_snapshot(df, price) -> Dict:
     """
-    Pure indicator snapshot.
-    NO session_state.
-    NO Streamlit.
+    Safely build latest indicator snapshot.
+    Missing indicators must degrade gracefully, never crash.
     """
 
-    # --- VWAP ---
-    vwap = df["VWAP"].iloc[-1]
-
-    # --- VWAP slope (last 5 candles) ---
-    if len(df) >= 5:
-        vwap_slope = (df["VWAP"].iloc[-1] - df["VWAP"].iloc[-5]) / df["VWAP"].iloc[-1]
-    else:
-        vwap_slope = 0
-
-    # --- ORB signal ---
-    levels = calc_levels(price)
-    orb_signal = (
-        "CONFIRMED"
-        if price > levels["orb_high"] or price < levels["orb_low"]
-        else "NONE"
-    )
-
-    # --- Trend alignment ---
-    highs = df["High"].tail(5)
-    lows = df["Low"].tail(5)
-
-    hh = (highs.diff() > 0).sum()
-    hl = (lows.diff() > 0).sum()
-
-    if hh >= 3 and hl >= 3:
-        trend_alignment = "STRONG"
-    elif hh >= 2:
-        trend_alignment = "MILD"
-    else:
-        trend_alignment = "NONE"
-
-    return {
-        "vwap": vwap,
-        "vwap_slope": vwap_slope,
-        "orb_signal": orb_signal,
-        "trend_alignment": trend_alignment,
-        "levels": levels,
+    snapshot = {
+        "price": price,
+        "vwap": None,
+        "rsi": None,
+        "ema_20": None,
+        "ema_50": None,
     }
+
+    if df is None or df.empty:
+        return snapshot
+
+    if "VWAP" in df.columns and not df["VWAP"].dropna().empty:
+        snapshot["vwap"] = df["VWAP"].dropna().iloc[-1]
+
+    if "RSI" in df.columns and not df["RSI"].dropna().empty:
+        snapshot["rsi"] = df["RSI"].dropna().iloc[-1]
+
+    if "EMA_20" in df.columns and not df["EMA_20"].dropna().empty:
+        snapshot["ema_20"] = df["EMA_20"].dropna().iloc[-1]
+
+    if "EMA_50" in df.columns and not df["EMA_50"].dropna().empty:
+        snapshot["ema_50"] = df["EMA_50"].dropna().iloc[-1]
+
+    return snapshot
 
 
 def evaluate_trade_setup(
-    *,
-    symbol,
+    symbol: str,
     df,
-    price,
-    index_pcr,
-    options_bias,
-    risk_context,
-    mode="MANUAL",  # MANUAL | SCANNER
-):
+    price: float,
+    mode: str = "INDEX",
+    strategy: str = "ORB",
+    **kwargs,   # absorbs index_pcr, stock_pcr, etc
+) -> Dict:
     """
-    Canonical evaluation used by BOTH:
-    - Manual trading
-    - Market scanner
+    Evaluate whether a trade setup is valid.
+
+    OUTPUT CONTRACT (DO NOT BREAK):
+    - allowed: bool
+    - confidence: int (0–100)
+    - confidence_label: str
+    - reasons: list[str]
+    - snapshot: dict
     """
 
-    # -------------------------------------------------
-    # Indicator snapshot
-    # -------------------------------------------------
+    reasons: List[str] = []
+
+    # --- Basic sanity check ---
+    if price is None or price <= 0:
+        return {
+            "allowed": False,
+            "confidence": 0,
+            "confidence_label": "LOW",
+            "is_valid": False,
+            "reasons": ["Invalid or missing live price"],
+            "snapshot": {},
+        }
+
+    # --- Indicators (safe) ---
     snap = _build_indicator_snapshot(df, price)
 
-    # -------------------------------------------------
-    # Confidence engine (UNCHANGED)
-    # -------------------------------------------------
-    confidence_score, confidence_reasons = calculate_trade_confidence({
-        "price": price,
-        "vwap": snap["vwap"],
-        "vwap_slope": snap["vwap_slope"],
-        "orb_signal": snap["orb_signal"],
-        "trend_alignment": snap["trend_alignment"],
-        "pcr": index_pcr,
-        "direction": "BUY" if options_bias != "BEARISH" else "SELL",
-    })
+    # --- Strategy logic ---
+    if strategy == "ORB":
+        if snap["vwap"] is not None:
+            if abs(price - snap["vwap"]) / price > 0.01:
+                reasons.append("Price too far from VWAP for clean ORB entry")
+        else:
+            reasons.append("VWAP unavailable (using price action only)")
 
-    # -------------------------------------------------
-    # Risk handling
-    # -------------------------------------------------
-    if mode == "SCANNER":
-        risk_status = (True, None)
+    elif strategy == "VWAP_MEAN_REVERSION":
+        if snap["vwap"] is None:
+            reasons.append("VWAP unavailable for mean reversion strategy")
+        else:
+            if abs(price - snap["vwap"]) / price < 0.002:
+                reasons.append("Price too close to VWAP, no edge")
+
+    # --- Optional filters ---
+    if snap["rsi"] is not None:
+        if snap["rsi"] > 80:
+            reasons.append("RSI extremely overbought")
+        elif snap["rsi"] < 20:
+            reasons.append("RSI extremely oversold")
+
+    if snap["ema_20"] is not None and snap["ema_50"] is not None:
+        if snap["ema_20"] < snap["ema_50"]:
+            reasons.append("Short-term trend below medium-term EMA")
+
+    # --- Final decision ---
+    is_valid = len(reasons) == 0
+    confidence_score = 100 if is_valid else 0
+
+    if confidence_score >= 80:
+        confidence_label = "HIGH"
+    elif confidence_score >= 50:
+        confidence_label = "MEDIUM"
     else:
-        risk_status = risk_ok(
-            risk_context["trades"],
-            risk_context["max_trades"],
-            risk_context["pnl"],
-            risk_context["max_loss"],
-        )
-
-    # -------------------------------------------------
-    # Trade decision engine (UNCHANGED)
-    # -------------------------------------------------
-    allowed, reason = trade_decision(
-        open_now=True,
-        risk_status=risk_status,
-        index_pcr=index_pcr,
-        price=price,
-        resistance=snap["levels"]["resistance"],
-        options_bias=options_bias,
-        confidence_score=confidence_score,
-    )
-
-    # -------------------------------------------------
-    # Normalize to BUY / WATCH / AVOID
-    # -------------------------------------------------
-    if not allowed:
-        status = "AVOID"
-    elif confidence_score >= 70:
-        status = "BUY"
-    elif confidence_score >= 45:
-        status = "WATCH"
-    else:
-        status = "AVOID"
+        confidence_label = "LOW"
 
     return {
-        "symbol": symbol,
-        "status": status,
-        "allowed": allowed,
+        "allowed": is_valid,
         "confidence": confidence_score,
-        "confidence_label": confidence_label(confidence_score),
-        "confidence_reasons": confidence_reasons,
-        "block_reason": None if allowed else reason,
+        "confidence_label": confidence_label,
+        "is_valid": is_valid,
+        "reasons": reasons,
+        "snapshot": snap,
     }
