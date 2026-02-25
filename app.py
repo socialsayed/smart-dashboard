@@ -7,6 +7,7 @@ import streamlit as st
 import pandas as pd
 import config
 
+
 # =====================================================
 # SAFE REFRESH DEFAULT
 # =====================================================
@@ -20,15 +21,12 @@ from services.charts import get_intraday_data
 
 from logic.market_opportunity_scanner import run_market_opportunity_scanner
 
+from logic.evaluate_setup import evaluate_trade_setup
+
 # --- Data & Logic ---
 from data.watchlist import daily_watchlist
 from logic.levels import calc_levels
-from logic.risk import risk_ok
-from logic.decision import (
-    trade_decision,
-    calculate_trade_confidence,
-    confidence_label
-)
+
 
 # --- Options (NIFTY) ---
 from services.nifty_options import (
@@ -41,9 +39,6 @@ from services.nifty_options import (
 # --- Utils ---
 from utils.cache import init_state
 from utils.charts import intraday_candlestick, add_vwap
-
-from ml.features.feature_builder import build_feature_vector
-from ml.inference.setup_scorer import score_setup
 
 
 # =====================================================
@@ -1967,209 +1962,61 @@ with tabs[0]:
     )
 
     # =====================================================
-    # 📈 TRADE DECISION ENGINE (RULE + ML ADVISORY)
+    # 📈 TRADE DECISION ENGINE (UNIFIED – SINGLE SOURCE)
     # =====================================================
-    st.subheader(
-        "📈 Trade Decision Engine",
-        help=SECTION_HELP["trade_decision"]
-    )
-
-    # -------------------------------
-    # Risk Status
-    # -------------------------------
-    risk_status = risk_ok(
-        st.session_state.trades,
-        max_trades,
-        st.session_state.pnl,
-        max_loss
-    )
-
-    # -------------------------------
-    # RULE-BASED CONFIDENCE
-    # -------------------------------
-    confidence_score = None
-    confidence_reasons = {}
-
-    vwap_slope = 0
-    trend_alignment = "NONE"
-
-    df_tc = st.session_state.get("last_intraday_df")
-
-    if price is not None and df_tc is not None and not df_tc.empty:
-
-        # VWAP slope (last 5 candles)
-        vwap_series = df_tc["VWAP"].tail(5)
-        if len(vwap_series) >= 2:
-            vwap_slope = (
-                vwap_series.iloc[-1] - vwap_series.iloc[0]
-            ) / vwap_series.iloc[-1]
-
-        # Trend structure
-        highs = df_tc["High"].tail(5)
-        lows = df_tc["Low"].tail(5)
-
-        hh = (highs.diff() > 0).sum()
-        hl = (lows.diff() > 0).sum()
-
-        if hh >= 3 and hl >= 3:
-            trend_alignment = "STRONG"
-        elif hh >= 2:
-            trend_alignment = "MILD"
-
-        direction = "BUY" if options_bias != "BEARISH" else "SELL"
-
-        confidence_score, confidence_reasons = calculate_trade_confidence({
-            "price": price,
-            "vwap": df_tc["VWAP"].iloc[-1],
-            "vwap_slope": vwap_slope,
-            "orb_signal": (
-                "CONFIRMED"
-                if price > levels.get("orb_high", float("inf"))
-                else "NONE"
-            ),
-            "trend_alignment": trend_alignment,
-            "pcr": index_pcr,
-            "direction": direction
-        })
-
-    # -------------------------------
-    # ML SETUP QUALITY (ADVISORY ONLY)
-    # -------------------------------
-    ml_score = None
-
-    if confidence_score is not None:
-        try:
-            features = build_feature_vector({
-                "price": price,
-                "vwap": df_tc["VWAP"].iloc[-1],
-                "vwap_slope": vwap_slope,
-                "support": levels.get("support"),
-                "resistance": levels.get("resistance"),
-                "above_orb_high": price > levels.get("orb_high", float("inf")),
-                "below_orb_low": price < levels.get("orb_low", 0),
-                "trend_strength": (
-                    2 if trend_alignment == "STRONG"
-                    else 1 if trend_alignment == "MILD"
-                    else 0
-                ),
-                "index_pcr": index_pcr if index_pcr else 1.0,
-                "options_bias": (
-                    1 if options_bias == "BULLISH"
-                    else -1 if options_bias == "BEARISH"
-                    else 0
-                ),
-                "minutes_since_open": int(
-                    (now_ist().timestamp() - df_tc.index[0].timestamp()) / 60
-                ),
-                "trades_today": st.session_state.trades,
-                "current_pnl": st.session_state.pnl,
-            })
-            ml_score = score_setup(features)
-        except Exception:
-            ml_score = None
-
-    # -------------------------------
-    # ML FEATURE EXPLANATION
-    # -------------------------------
-    if ml_score is not None and features is not None:
-
-        with st.expander("🧠 Why ML rated this setup this way?"):
-
-            st.markdown("**Key inputs used by ML:**")
-
-            st.write(f"- Price vs VWAP: {'Above' if features['price'] > features['vwap'] else 'Below'}")
-            st.write(f"- VWAP Slope: {features['vwap_slope']:.4f}")
-            st.write(f"- Trend Strength: {features['trend_strength']} (0=Weak, 2=Strong)")
-            st.write(f"- Above ORB High: {features['above_orb_high']}")
-            st.write(f"- Below ORB Low: {features['below_orb_low']}")
-            st.write(f"- Index PCR: {features['index_pcr']:.2f}")
-            st.write(f"- Options Bias: {features['options_bias']}")
-            st.write(f"- Trades Today: {features['trades_today']}")
-            st.write(f"- Current PnL: ₹{features['current_pnl']:.2f}")
-
-            st.caption(
-                "ML compares this structure to historically profitable vs unprofitable setups."
-            )
-
-    # -------------------------------
-    # FINAL TRADE GATE
-    # -------------------------------
-    allowed, reason = trade_decision(
-        open_now,
-        risk_status,
-        index_pcr,
-        price,
-        levels.get("resistance", 0),
+    
+    result = evaluate_trade_setup(
+        symbol=stock,
+        df=st.session_state.last_intraday_df,
+        price=price,
+        index_pcr=index_pcr,
         options_bias=options_bias,
-        confidence_score=confidence_score
+        risk_context={
+            "trades": st.session_state.trades,
+            "pnl": st.session_state.pnl,
+            "max_trades": max_trades,
+            "max_loss": max_loss,
+        },
+        mode="MANUAL",
     )
-
-    # -------------------------------
-    # UI OUTPUT
-    # -------------------------------
+    
+    allowed = result["allowed"]
+    confidence_score = result["confidence"]
+    confidence_label_text = result["confidence_label"]
+    reason = result.get("block_reason", "")
+    reasons = result.get("reasons", [])
+    ml_score = result.get("ml_score")
+    
+    # =====================================================
+    # 🧠 TRADE DECISION OUTPUT (UI)
+    # =====================================================
+    
     if allowed:
-        st.markdown(
-            "<div class='trade-allowed'>✅ TRADE CONDITION SATISFIED</div>",
-            unsafe_allow_html=True
+        st.success(
+            f"✅ Trade Allowed | Confidence: {confidence_score} "
+            f"({confidence_label_text})"
         )
     else:
-        st.markdown(
-            f"<div class='trade-blocked'>🚫 TRADE BLOCKED<br>{reason}</div>",
-            unsafe_allow_html=True
+        st.warning(
+            f"🚫 Trade Blocked: {reason} | "
+            f"Confidence: {confidence_score} "
+            f"({confidence_label_text})"
         )
-
-    # -------------------------------
-    # CONFIDENCE DISPLAY
-    # -------------------------------
-    if confidence_score is not None:
-        st.markdown(f"#### 🎯 Rule-Based Confidence: {confidence_score}/100")
-        st.progress(confidence_score / 100)
-        st.markdown(
-            f"**Level:** {confidence_label(confidence_score)}"
-        )
-
-        with st.expander("Why this setup?"):
-            for k, v in confidence_reasons.items():
-                st.write(f"- **{k}**: {v}")
-
-    # -------------------------------
-    # ML DISPLAY (ADVISORY — ENHANCED)
-    # -------------------------------
+    
+    # ---- Why this decision ----
+    if reasons:
+        with st.expander("📌 Why this decision?"):
+            for r in reasons:
+                st.write(f"- {r}")
+    
+    # ---- ML Advisory ----
     if ml_score is not None:
-
         ml_pct = int(ml_score * 100)
-
-        if ml_pct >= 70:
-            ml_color = "#1b5e20"   # dark green
-            ml_label = "STRONG"
-        elif ml_pct >= 45:
-            ml_color = "#f9a825"   # amber
-            ml_label = "AVERAGE"
-        else:
-            ml_color = "#b71c1c"   # red
-            ml_label = "WEAK"
-
-        st.markdown(
-            f"""
-            <div style="
-                border-left: 6px solid {ml_color};
-                background: #f9f9f9;
-                padding: 10px 14px;
-                border-radius: 6px;
-                margin-top: 6px;
-            ">
-                <strong>🤖 ML Setup Quality</strong><br>
-                <span style="font-size:1.4rem; color:{ml_color};">
-                    {ml_pct}/100 — {ml_label}
-                </span>
-                <br>
-                <span style="font-size:0.9rem; color:#555;">
-                    ML is advisory only. Rules always override ML.
-                </span>
-            </div>
-            """,
-            unsafe_allow_html=True
+        st.info(
+            f"🤖 ML Setup Quality (Advisory): {ml_pct}/100\n\n"
+            "ML is advisory only. Rule engine always dominates."
         )
+    
     # =====================================================
     # 🧪 PAPER TRADE SIMULATOR (EXECUTION CONTROLS)
     # =====================================================
