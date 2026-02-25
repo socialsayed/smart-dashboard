@@ -7,6 +7,21 @@ import streamlit as st
 import pandas as pd
 import config
 
+def validate_nse_symbol(symbol: str) -> bool:
+    """
+    Validates whether a given symbol exists on NSE
+    using Yahoo Finance (.NS suffix).
+    """
+    if not symbol or len(symbol) < 2:
+        return False
+
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(f"{symbol}.NS")
+        info = ticker.fast_info
+        return info is not None and "lastPrice" in info
+    except Exception:
+        return False
 
 # =====================================================
 # SAFE REFRESH DEFAULT
@@ -666,9 +681,10 @@ init_state({
     "last_options_bias": None,
     "last_intraday_df": None,
     "levels": {},
-    "last_refresh": time.time(),
     "last_price_metric": None,
     "prev_close": None,
+    "last_stock": None,
+    "scanner_ready": False,   # ✅ ADD THIS
 })
 
 # Load persisted trades for today (OPEN + CLOSED)
@@ -861,30 +877,74 @@ with tabs[0]:
     st.session_state.setdefault("max_loss", 5000)
 
     # =====================================================
-    # SIDEBAR – MARKET SELECTION
+    # 📌 MARKET SELECTION (INPUT ONLY)
     # =====================================================
-    st.sidebar.header(
-        "📌 Market Selection",
-        help="Select index and stock. All data updates automatically."
+    
+    st.sidebar.subheader("📌 Market Selection")
+    
+    stock_mode = st.sidebar.radio(
+        "Stock Selection Mode",
+        ["Index Based", "Manual Stock"],
+        help="Choose stocks from index or manually search any NSE stock"
     )
-
-    # keep track of the last stock we fetched data for so we can
-    # invalidate caches when the user switches symbols (including manual mode)
-    if "last_stock" not in st.session_state:
-        st.session_state.last_stock = None
-
-    index = st.sidebar.selectbox(
+    
+    selected_index = st.sidebar.selectbox(
         "Select Index",
         options=list(config.INDEX_MAP.keys()),
-        key="index"
     )
-
-    # ``stock`` will be determined a bit later once we know whether the
-    # user is in Manual Stock mode.  Use the session state default for now
-    # so the variable always exists for subsequent code.
-    stock = st.session_state.get("stock", config.INDEX_MAP[index][0])
-
-
+    
+    selected_stock = None
+    manual_stock = None
+    
+    if stock_mode == "Index Based":
+        stock_list = sorted(config.INDEX_MAP[selected_index])
+        selected_stock = st.sidebar.selectbox(
+            "Select Stock",
+            stock_list,
+        )
+    
+    if stock_mode == "Manual Stock":
+        manual_stock = st.sidebar.text_input(
+            "Search Stock (Symbol or Name)",
+            placeholder="e.g. RELIANCE, TCS, INFY",
+        ).upper().strip()
+        
+        manual_symbol = manual_stock   # ← THIS is “immediately after”
+            
+    # =====================================================
+    # 🎯 FINAL ACTIVE STOCK RESOLUTION (SINGLE SOURCE OF TRUTH)
+    # =====================================================
+    
+    stock = None  # ✅ THIS VARIABLE MUST EXIST
+    
+    if stock_mode == "Manual Stock":
+        if manual_stock:
+            if validate_nse_symbol(manual_stock):
+                stock = manual_stock
+                st.sidebar.success(f"✅ NSE Stock Found: {manual_stock}")
+            else:
+                st.sidebar.error(f"❌ Invalid NSE Symbol: {manual_stock}")
+                st.stop()
+        else:
+            st.sidebar.warning("Please enter a stock symbol")
+            st.stop()
+    
+    else:  # Index Based
+        if selected_stock:
+            stock = selected_stock
+        else:
+            st.sidebar.warning("Please select a stock")
+            st.stop()
+    
+    # 🔒 Persist & detect change
+    if st.session_state.get("last_stock") != stock:
+        st.session_state.last_stock = stock
+        st.session_state.last_intraday_df = None
+        st.session_state.last_price_metric = None
+        st.session_state.scanner_ready = True   # ✅ KEY LINE
+    
+    st.session_state.stock = stock
+    
     # =====================================================
     # SIDEBAR – RISK LIMITS
     # =====================================================
@@ -1079,134 +1139,20 @@ with tabs[0]:
     """)
     
 
+
+
     # =====================================================
-    # 🔎 MARKET OPPORTUNITY SCANNER
+    # 🔧 SCANNER SYMBOL SELECTION (FIXED – READ ONLY)
     # =====================================================
-
-    st.sidebar.markdown("### 🔎 Market Scanner")
-
-    scanner_mode = st.sidebar.radio(
-        "Scan Universe",
-        options=[
-            "NIFTY 50",
-            "BANKNIFTY Stocks",
-            "Daily Watchlist",
-            "Manual Stock",
-        ],
-        index=0,
-    )
-
-    if scanner_mode == "Manual Stock":
-        st.info(
-            "🔧 **Manual mode enabled** — enter a symbol or partial company name in the sidebar. "
-            "If the input isn’t recognised it will still be scanned verbatim, but results may be empty."
-        )
-
-    # helper for manual lookup (symbol or partial name)
-    def _resolve_manual(query: str) -> str | None:
-        """Convert free‑text entry into a ticker symbol.
-
-        * Treats empty input as ``None``.
-        * Upper‑cases and strips spaces so ``"Tata Motors"`` → ``"TATAMOTORS"``.
-        * Searches ``config.INDEX_MAP`` for an exact or prefix match (not a
-          general substring) to avoid accidental hits like ``"foo" →
-          "JUBLFOOD"``.
-        * If nothing is found it simply returns the upper‑cased query; this
-          lets users scan symbols outside the hard‑coded lists.
-        """
-        if not query:
-            return None
-        q = query.strip().upper().replace(" ", "")
-        for symbols in config.INDEX_MAP.values():
-            for sym in symbols:
-                if q == sym or sym.startswith(q):
-                    return sym
-        # no match – return the user's upper‑cased input so the scanner can
-        # still attempt a lookup on arbitrary tickers
-        return query.strip().upper()
-
-    manual_symbol: str | None = None
-    if scanner_mode == "Manual Stock":
-        manual_symbol = st.sidebar.text_input(
-            "Enter Stock Symbol or partial name",
-            placeholder="e.g. RELIANCE or Tata Motors",
-        )
-
-        if manual_symbol:
-            resolved = _resolve_manual(manual_symbol)
-            if resolved != manual_symbol.strip().upper():
-                st.sidebar.caption(f"🔍 resolved to `{resolved}` from input `{manual_symbol}`")
-            manual_symbol = resolved
-        else:
-            manual_symbol = None
-
-        # when manual symbol provided we simply override the local
-        # ``stock`` variable; there's no need to touch session_state, and
-        # trying to modify it after the selectbox is created triggers the
-        # StreamlitAPIException you saw.
-        if manual_symbol:
-            stock = manual_symbol
+    
+    
+        scan_symbols = [st.session_state.stock]
 
         # a gentle reminder that manual scans are experimental
         st.sidebar.caption(
             "ℹ️ Manual symbol scanning is enabled, but results may not be "
             "accurate for names not in the index map."
         )
-
-    # after the scanner mode block we can finally render the stock control.
-    # even when a manual symbol is supplied we continue to use a selectbox
-    # (rather than a disabled text field) to avoid confusion – the manual
-    # value is simply prepended to the options list and forced to index 0.
-    if scanner_mode == "Manual Stock" and manual_symbol:
-        st.sidebar.write("**SCANNING MANUAL STOCK:**")
-        stock_options = [manual_symbol] + [s for s in config.INDEX_MAP[index] if s != manual_symbol]
-        stock = st.sidebar.selectbox(
-            "Select Stock",
-            options=stock_options,
-            index=0,  # ensure the manual value is selected
-            key="stock",
-        )
-    else:
-        stock = st.sidebar.selectbox(
-            "Select Stock",
-            options=config.INDEX_MAP[index],
-            key="stock"
-        )
-
-    # if the stock has changed since last run, clear any cached intraday
-    # dataframe so we fetch fresh data. also reset the price metric.
-    if stock != st.session_state.last_stock:
-        st.session_state.last_intraday_df = None
-        st.session_state.last_price_metric = None
-        st.session_state.last_stock = stock
-
-    # warn if manual stock is entered but no live data can be found later
-    # (this message is shown after the price fetch below)
-
-    # =====================================================
-    # 🔧 SCANNER SYMBOL SELECTION (FIXED)
-    # =====================================================
-
-    scan_symbols = []
-
-    if scanner_mode == "NIFTY 50":
-        scan_symbols = config.INDEX_MAP["NIFTY 50"]
-
-    elif scanner_mode == "BANKNIFTY Stocks":
-        scan_symbols = config.INDEX_MAP.get("BANKNIFTY", [])
-
-    elif scanner_mode == "Daily Watchlist":
-        scan_symbols = cached_daily_watchlist(
-        config.INDEX_MAP[index],
-        now_ist().date()
-    )
-
-    elif scanner_mode == "Manual Stock":
-        # manual_symbol was resolved earlier; if present include it
-        if manual_symbol:
-            scan_symbols = [manual_symbol]
-        else:
-            scan_symbols = []  # nothing entered
 
     # =====================================================
     # MARKET STATUS
@@ -1230,9 +1176,6 @@ with tabs[0]:
     st.divider()
 
 
-    FAST_REFRESH_MS = 1500 if open_now else 10000
-
-
     if "alert_state" not in st.session_state:
         st.session_state.alert_state = set()
 
@@ -1240,9 +1183,7 @@ with tabs[0]:
     # 🔎 MARKET OPPORTUNITY SCANNER OUTPUT
     # =====================================================
 
-
-
-    if open_now and scan_symbols:
+    if open_now and st.session_state.scanner_ready:
         st.subheader("🔎 Market Opportunities")
 
         st.caption(
@@ -1252,16 +1193,20 @@ with tabs[0]:
     )
 
         scanner_results = run_market_opportunity_scanner(scan_symbols)
+        st.session_state.scanner_ready = False
 
         if not scanner_results:
             st.info("ℹ️ No valid trade setups found for the selected stock.")
         else:
             for res in scanner_results:
 
-                symbol = res["symbol"]
-                status = res["status"]
-                confidence = res["confidence"]
-                reasons = res["reasons"]
+                symbol = res.get("symbol", "—")
+                status = res.get("status", "UNKNOWN")
+                confidence = res.get("confidence", "LOW")
+                
+                reasons = res.get("reasons")
+                if not reasons:
+                    reasons = ["No detailed rationale available (scanner signal only)"]
 
                 ml_badge = ""
                 if "ml_score" in res and res["ml_score"] is not None:
@@ -1270,17 +1215,17 @@ with tabs[0]:
                 if status == "BUY":
                     st.success(
                         f"🟢 BUY SETUP: {symbol} | Confidence: {confidence}{ml_badge}\n"
-                        + " • " + "\n • ".join(reasons)
+                        + "\n".join(f" • {r}" for r in reasons)
                     )
                 elif status == "WATCH":
                     st.warning(
                         f"🟡 WATCH: {symbol} | Confidence: {confidence}{ml_badge}\n"
-                        + " • " + "\n • ".join(reasons)
+                        + "\n".join(f" • {r}" for r in reasons)
                     )
                 else:
                     st.error(
                         f"🔴 AVOID: {symbol} | Confidence: {confidence}{ml_badge}\n"
-                        + " • " + "\n • ".join(reasons)
+                        + "\n".join(f" • {r}" for r in reasons)
                     )
 
 
@@ -1396,8 +1341,8 @@ with tabs[0]:
     else:
         # no intraday data available for this stock
         st.warning(
-            "⚠️ No intraday data available; the symbol may not exist or is "
-            "delisted. Day range and related metrics cannot be calculated."
+            "⚠️ Intraday candles temporarily unavailable from data source. "
+            "Live price is valid. Charts & ORB/VWAP are paused for safety."
         )
 
     # ---------- Color intensity based on distance from OPEN ----------
@@ -1647,7 +1592,7 @@ with tabs[0]:
 
     today = now_ist().date()
     watchlist = cached_daily_watchlist(
-        config.INDEX_MAP[index],
+        config.INDEX_MAP[selected_index],
         today
     )
     rows = []

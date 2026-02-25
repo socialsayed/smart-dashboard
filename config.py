@@ -20,75 +20,117 @@ IST = pytz.timezone("Asia/Kolkata")
 
 
 # =====================================================
-# INDEX MAP (TOP ~300 INDIAN STOCKS)
+# INDEX → STOCK UNIVERSE MAP
 # =====================================================
+
 INDEX_MAP = {
+
+    # -----------------------------
+    # NIFTY 50
+    # -----------------------------
     "NIFTY 50": [
-        "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN",
-        "ITC", "LT", "AXISBANK", "KOTAKBANK", "HINDUNILVR",
-        "BHARTIARTL", "BAJFINANCE", "ASIANPAINT", "HCLTECH",
-        "TITAN", "MARUTI", "SUNPHARMA", "ULTRACEMCO", "NTPC",
-        "POWERGRID", "NESTLEIND", "ONGC", "ADANIENT", "ADANIPORTS",
-        "WIPRO", "JSWSTEEL", "TATAMOTORS", "COALINDIA", "BPCL",
-        "INDUSINDBK", "BAJAJFINSV", "HDFCLIFE", "SBILIFE",
-        "DIVISLAB", "DRREDDY", "EICHERMOT", "GRASIM",
-        "HEROMOTOCO", "BRITANNIA", "HINDALCO", "TATASTEEL",
-        "APOLLOHOSP", "CIPLA", "M&M", "SHREECEM",
-        "TECHM", "UPL"
+        "ADANIENT", "ADANIPORTS", "APOLLOHOSP", "ASIANPAINT",
+        "AXISBANK", "BAJAJ-AUTO", "BAJFINANCE", "BAJAJFINSV",
+        "BPCL", "BHARTIARTL", "BRITANNIA", "CIPLA",
+        "COALINDIA", "DIVISLAB", "DRREDDY", "EICHERMOT",
+        "GRASIM", "HCLTECH", "HDFCBANK", "HDFCLIFE",
+        "HEROMOTOCO", "HINDALCO", "HINDUNILVR", "ICICIBANK",
+        "INDUSINDBK", "INFY", "ITC", "JSWSTEEL",
+        "KOTAKBANK", "LT", "M&M", "MARUTI",
+        "NESTLEIND", "NTPC", "ONGC", "POWERGRID",
+        "RELIANCE", "SBILIFE", "SBIN", "SUNPHARMA",
+        "TATACONSUM", "TATAMOTORS", "TATASTEEL", "TECHM",
+        "TITAN", "ULTRACEMCO", "UPL", "WIPRO"
     ],
 
-    "NIFTY NEXT 50": [
-        "ADANIGREEN", "ADANIPOWER", "AMBUJACEM", "AUROPHARMA",
-        "BANDHANBNK", "BERGEPAINT", "BIOCON", "BOSCHLTD",
-        "CANBK", "CHOLAFIN", "COLPAL", "DABUR",
-        "DLF", "GAIL", "GODREJCP", "HAVELLS",
-        "ICICIPRULI", "IGL", "INDIGO", "JINDALSTEL",
-        "LTFH", "LICHSGFIN", "LUPIN", "MARICO",
-        "MUTHOOTFIN", "NAUKRI", "NMDC", "PAGEIND",
-        "PETRONET", "PIDILITIND", "PNB", "SIEMENS",
-        "SRF", "TATACOMM", "TORNTPHARM", "TVSMOTOR",
-        "UBL", "VEDL", "VOLTAS", "ZEEL"
-    ],
-
-    "NIFTY MIDCAP 100": [
-        "ABCAPITAL", "ALKEM", "ASHOKLEY", "ASTRAL",
-        "ATUL", "BAJAJHLDNG", "BALKRISIND", "BEL",
-        "BHARATFORG", "BHEL", "CANFINHOME", "COFORGE",
-        "CONCOR", "CROMPTON", "CUMMINSIND", "ESCORTS",
-        "EXIDEIND", "FEDERALBNK", "GLENMARK", "HAL",
-        "HINDPETRO", "IDFCFIRSTB", "IRCTC", "JUBLFOOD",
-        "LALPATHLAB", "LICI", "LTTS", "MFSL",
-        "MPHASIS", "OBEROIRLTY", "PERSISTENT", "POLYCAB",
-        "SAIL", "SUNTV", "TATACHEM", "TATAPOWER",
-        "TORNTPOWER", "TRENT", "UNITDSPR", "ZOMATO"
-    ],
-
-    "NIFTY SMALLCAP 100": [
-        "AARTIIND", "AFFLE", "BALAMINES", "BIRLACORPN",
-        "CAMS", "CLEAN", "CYIENT", "DEEPAKNTR",
-        "EDELWEISS", "ELGIEQUIP", "FINEORG",
-        "GRANULES", "GSPL", "HFCL", "IEX",
-        "INDIACEM", "IRB", "JBCHEPHARM",
-        "JKCEMENT", "KALYANKJIL", "KEI",
-        "KPITTECH", "LATENTVIEW", "MAHLOG",
-        "METROPOLIS", "NBCC", "NIITLTD",
-        "POLYMED", "RAILTEL", "ROUTE",
-        "SONACOMS", "SPANDANA", "STAR",
-        "SUPREMEIND", "TATAELXSI", "TRIDENT",
-        "VGUARD", "WELCORP"
-    ],
-    
+    # -----------------------------
+    # BANK NIFTY
+    # -----------------------------
     "BANKNIFTY": [
-    "HDFCBANK",
-    "ICICIBANK",
-    "SBIN",
-    "AXISBANK",
-    "KOTAKBANK",
-    "INDUSINDBK",
-    "AUBANK",
-    "BANDHANBNK",
-    "IDFCFIRSTB",
-    "PNB",
-    "FEDERALBNK",
-],
+        "AXISBANK", "BANDHANBNK", "FEDERALBNK",
+        "HDFCBANK", "ICICIBANK", "IDFCFIRSTB",
+        "INDUSINDBK", "KOTAKBANK", "PNB", "SBIN"
+    ],
+
+    # -----------------------------
+    # FIN NIFTY
+    # -----------------------------
+    "FINNIFTY": [
+        "BAJAJFINSV", "BAJFINANCE", "CHOLAFIN",
+        "HDFCAMC", "HDFCLIFE", "ICICIGI",
+        "ICICIPRULI", "LICI", "MUTHOOTFIN",
+        "SBILIFE"
+    ],
+
+    # -----------------------------
+    # NIFTY IT
+    # -----------------------------
+    "NIFTY IT": [
+        "COFORGE", "HCLTECH", "INFY",
+        "LTIM", "MPHASIS", "PERSISTENT",
+        "TCS", "TECHM", "WIPRO"
+    ],
+
+    # -----------------------------
+    # NIFTY FMCG
+    # -----------------------------
+    "NIFTY FMCG": [
+        "BRITANNIA", "COLPAL", "DABUR",
+        "GODREJCP", "HINDUNILVR", "ITC",
+        "MARICO", "NESTLEIND", "TATACONSUM"
+    ],
+
+    # -----------------------------
+    # NIFTY METAL
+    # -----------------------------
+    "NIFTY METAL": [
+        "ADANIENT", "HINDALCO", "JSWSTEEL",
+        "JINDALSTEL", "NALCO", "NMDC",
+        "SAIL", "TATASTEEL", "VEDL"
+    ],
+
+    # -----------------------------
+    # NIFTY ENERGY
+    # -----------------------------
+    "NIFTY ENERGY": [
+        "ADANIPORTS", "BPCL", "COALINDIA",
+        "GAIL", "IOC", "NTPC",
+        "ONGC", "POWERGRID", "RELIANCE"
+    ],
+
+    # -----------------------------
+    # NIFTY AUTO
+    # -----------------------------
+    "NIFTY AUTO": [
+        "ASHOKLEY", "BAJAJ-AUTO", "BHARATFORG",
+        "EICHERMOT", "HEROMOTOCO", "M&M",
+        "MARUTI", "TATAMOTORS", "TVSMOTOR"
+    ],
+
+    # -----------------------------
+    # NIFTY PHARMA
+    # -----------------------------
+    "NIFTY PHARMA": [
+        "ALKEM", "APOLLOHOSP", "AUROPHARMA",
+        "CIPLA", "DIVISLAB", "DRREDDY",
+        "LUPIN", "SUNPHARMA", "TORNTPHARM"
+    ],
+
+    # -----------------------------
+    # MIDCAP (LIQUID)
+    # -----------------------------
+    "NIFTY MIDCAP": [
+        "ADANIENT", "AUBANK", "CANBK",
+        "FEDERALBNK", "GODREJPROP",
+        "INDIGO", "IRCTC", "LICI",
+        "PNB", "TRENT", "ZOMATO"
+    ],
+
+    # -----------------------------
+    # SMALLCAP (LIQUID / POPULAR)
+    # -----------------------------
+    "NIFTY SMALLCAP": [
+        "IDEA", "IRFC", "RPOWER",
+        "SUZLON", "YESBANK"
+    ],
 }

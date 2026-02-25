@@ -71,13 +71,30 @@ def detect_orb_breakout(df: pd.DataFrame, orb: dict):
 
 
 # =====================================================
-# INTRADAY CHART WITH ORB BREAKOUT ARROWS
+# INTRADAY CHART WITH VWAP + ORB + BREAKOUTS
 # =====================================================
 def intraday_candlestick(
     df: pd.DataFrame,
     symbol: str,
     interval_label: str = "Intraday"
 ):
+    # =====================================================
+    # ✅ CRITICAL FIX: NORMALIZE DATETIME COLUMN
+    # =====================================================
+    if df is None or df.empty:
+        return None
+
+    # yfinance provides Datetime as index → convert to column
+    if "Datetime" not in df.columns:
+        df = df.copy()
+        df.reset_index(inplace=True)
+
+        if "Datetime" not in df.columns:
+            if "Date" in df.columns:
+                df.rename(columns={"Date": "Datetime"}, inplace=True)
+            elif "index" in df.columns:
+                df.rename(columns={"index": "Datetime"}, inplace=True)
+
     fig = go.Figure()
 
     # =========================
@@ -105,21 +122,22 @@ def intraday_candlestick(
     # =========================
     # VWAP
     # =========================
-    fig.add_trace(
-        go.Scatter(
-            x=df["Datetime"],
-            y=df["VWAP"],
-            mode="lines",
-            name="VWAP",
-            line=dict(color="blue", width=2),
-            hovertemplate=(
-                "<b>%{x|%H:%M}</b><br>"
-                "VWAP: ₹%{y:.2f}<br>"
-                "<i>Volume Weighted Avg Price</i>"
-                "<extra></extra>"
+    if "VWAP" in df.columns:
+        fig.add_trace(
+            go.Scatter(
+                x=df["Datetime"],
+                y=df["VWAP"],
+                mode="lines",
+                name="VWAP",
+                line=dict(color="blue", width=2),
+                hovertemplate=(
+                    "<b>%{x|%H:%M}</b><br>"
+                    "VWAP: ₹%{y:.2f}<br>"
+                    "<i>Volume Weighted Avg Price</i>"
+                    "<extra></extra>"
+                )
             )
         )
-    )
 
     # =========================
     # VOLUME BARS
@@ -187,13 +205,13 @@ def intraday_candlestick(
             )
 
     # =========================
-    # LAYOUT (FIXED)
+    # LAYOUT
     # =========================
     fig.update_layout(
         title=dict(
             text=f"{symbol} – {interval_label} | VWAP + ORB + Breakouts",
             x=0.01,
-            y=0.93,              # 👈 PUSH TITLE DOWN
+            y=0.93,
             xanchor="left",
             yanchor="top"
         ),
@@ -206,18 +224,14 @@ def intraday_candlestick(
             showgrid=False
         ),
         xaxis_rangeslider_visible=False,
-
-        # Extra top margin to avoid collision
         margin=dict(l=20, r=20, t=110, b=20),
-
         legend=dict(
             orientation="h",
             yanchor="top",
-            y=1.05,              # 👈 LEGEND ABOVE TITLE
+            y=1.05,
             xanchor="left",
             x=0
         ),
-
         hovermode="x unified"
     )
 
