@@ -2062,133 +2062,134 @@ with tabs[0]:
     # 📋 PAPER TRADES – TODAY (OPEN + CLOSED)
     # =====================================================
     st.subheader("📋 Paper Trades – Today")
-
+    
     trades_today = load_day_trades()
-    ltp = st.session_state.get("last_price_metric")
-
+    
     open_trades = [t for t in trades_today if t["Status"] == "OPEN"]
     closed_trades = [t for t in trades_today if t["Status"] == "CLOSED"]
-
+    
     # =====================================================
-    # NET LIVE PnL (ALL OPEN TRADES)
+    # NET LIVE PnL (ALL OPEN TRADES) — PER SYMBOL (FIXED)
     # =====================================================
-    if open_trades and ltp is not None:
-        net_live_pnl = sum(
-            (ltp - t["Entry"]) * t["Qty"]
-            for t in open_trades
-            if isinstance(t.get("Entry"), (int, float))
-        )
-
-        color = (
-            "green" if net_live_pnl > 0
-            else "red" if net_live_pnl < 0
-            else "gray"
-        )
-
-        st.markdown(
-            f"""
-            <h3 style="color:{color}; margin-bottom:0;">
-                📈 Net Live PnL (Open Trades): ₹{net_live_pnl:.2f}
-            </h3>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.divider()
-
-
+    net_live_pnl = 0.0
+    
+    for t in open_trades:
+        trade_price, _ = get_live_price_fast(t["Symbol"])
+        if trade_price is not None and isinstance(t.get("Entry"), (int, float)):
+            net_live_pnl += (trade_price - t["Entry"]) * t["Qty"]
+    
+    color = "green" if net_live_pnl > 0 else "red" if net_live_pnl < 0 else "gray"
+    
+    st.markdown(
+        f"""
+        <h3 style="color:{color}; margin-bottom:0;">
+            📈 Net Live PnL (Open Trades): ₹{net_live_pnl:.2f}
+        </h3>
+        """,
+        unsafe_allow_html=True
+    )
+    st.divider()
+    
     # =========================
     # OPEN TRADES
     # =========================
     if open_trades:
         st.markdown("### 🟢 Open Trades")
-
-        # ✅ Column headers (ADD HERE — once)
-        h1, h2, h3, h4, h5, h6, h7, h8 = st.columns(
-            [1.2, 0.8, 0.6, 1, 1, 0.8, 0.9, 1.2]
+    
+        h1, h2, h3, h4, h5, h6, h7, h8, h9 = st.columns(
+            [1.2, 0.6, 0.6, 1, 1, 1, 1, 0.9, 1.2]
         )
         h1.markdown("**Symbol**")
         h2.markdown("**Side**")
         h3.markdown("**Qty**")
-        h4.markdown("**Entry**")
-        h5.markdown("**Live Price**")
-        h6.markdown("**Live PnL (₹)**")
-        h7.markdown("**Status**")
-        h8.markdown("**Action**")
-
+        h4.markdown("**Buy Price**")
+        h5.markdown("**Sell Price**")
+        h6.markdown("**Live Price**")
+        h7.markdown("**Live PnL (₹)**")
+        h8.markdown("**Status**")
+        h9.markdown("**Action**")
+    
         for t in open_trades:
+            trade_price, _ = get_live_price_fast(t["Symbol"])
+    
             live_pnl = None
-            if ltp is not None:
-                live_pnl = round((ltp - t["Entry"]) * t["Qty"], 2)
-
-            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
-                [1.2, 0.8, 0.6, 1, 1, 0.8, 0.9, 1.2]
+            if trade_price is not None:
+                live_pnl = round((trade_price - t["Entry"]) * t["Qty"], 2)
+    
+            buy_price = t["Entry"] if t["Side"] == "BUY" else "—"
+            sell_price = t["Entry"] if t["Side"] == "SELL" else "—"
+    
+            c1, c2, c3, c4, c5, c6, c7, c8, c9 = st.columns(
+                [1.2, 0.6, 0.6, 1, 1, 1, 1, 0.9, 1.2]
             )
-
+    
             c1.write(t["Symbol"])
             c2.write(t["Side"])
             c3.write(t["Qty"])
-            c4.write(t["Entry"])
-            c5.write(ltp if ltp is not None else "—")
+            c4.write(buy_price)
+            c5.write(sell_price)
+            c6.write(trade_price if trade_price is not None else "—")
+    
             if live_pnl is None:
-                c6.write("—")
+                c7.write("—")
             elif live_pnl > 0:
-                c6.markdown(f"<span style='color:green;'>+₹{live_pnl}</span>", unsafe_allow_html=True)
+                c7.markdown(f"<span style='color:green;'>+₹{live_pnl}</span>", unsafe_allow_html=True)
             elif live_pnl < 0:
-                c6.markdown(f"<span style='color:red;'>₹{live_pnl}</span>", unsafe_allow_html=True)
+                c7.markdown(f"<span style='color:red;'>₹{live_pnl}</span>", unsafe_allow_html=True)
             else:
-                c6.write("₹0.0")
-
-            c7.write("OPEN")
-
-            if c8.button("❌ Exit", key=f"exit_{t['Trade ID']}"):
-                exit_price = ltp
-                exit_time = now_ist().strftime("%H:%M:%S")
-                pnl = round((exit_price - t["Entry"]) * t["Qty"], 2)
-
-                update_trade_in_csv(
-                    t["Trade ID"],
-                    {
-                        "Exit": exit_price,
-                        "PnL": pnl,
-                        "Exit Time": exit_time,
-                        "Status": "CLOSED",
-                    }
-                )
-
-                st.success(f"❌ {t['Symbol']} CLOSED | PnL ₹{pnl}")
-
-                st.session_state.history = load_day_trades()
-                refresh_risk_from_history()
-                st.rerun()
+                c7.write("₹0.00")
+    
+            c8.write("OPEN")
+    
+            if c9.button("❌ Exit", key=f"exit_{t['Trade ID']}"):
+                exit_price = trade_price
+                if exit_price is None:
+                    st.error("❌ Live price unavailable for exit.")
+                else:
+                    exit_time = now_ist().strftime("%H:%M:%S")
+                    pnl = round((exit_price - t["Entry"]) * t["Qty"], 2)
+    
+                    update_trade_in_csv(
+                        t["Trade ID"],
+                        {
+                            "Exit": exit_price,
+                            "PnL": pnl,
+                            "Exit Time": exit_time,
+                            "Status": "CLOSED",
+                        }
+                    )
+    
+                    st.success(f"❌ {t['Symbol']} CLOSED | PnL ₹{pnl}")
+                    st.session_state.history = load_day_trades()
+                    refresh_risk_from_history()
+                    st.rerun()
     else:
         st.info("No OPEN trades.")
-
+    
     # =========================
     # CLOSED TRADES
     # =========================
     if closed_trades:
         st.markdown("### 🔵 Closed Trades")
-
+    
         rows = []
         for t in closed_trades:
+            buy_price = t["Entry"] if t["Side"] == "BUY" else t["Exit"]
+            sell_price = t["Exit"] if t["Side"] == "BUY" else t["Entry"]
+    
             rows.append({
                 "Symbol": t["Symbol"],
                 "Side": t["Side"],
                 "Qty": t["Qty"],
-                "Entry": t["Entry"],
-                "Exit": t["Exit"],
+                "Buy Price": buy_price,
+                "Sell Price": sell_price,
                 "PnL (₹)": t["PnL"],
                 "Entry Time": t["Entry Time"],
                 "Exit Time": t["Exit Time"],
                 "Strategy": t["Strategy"],
             })
-
-        st.dataframe(
-            pd.DataFrame(rows),
-            use_container_width=True,
-            hide_index=True
-        )
+    
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
     else:
         st.info("No CLOSED trades yet today.")
 
