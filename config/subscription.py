@@ -1,137 +1,41 @@
 # =====================================================
-# SUBSCRIPTION CONFIG — STEP 3A
-# =====================================================
-# This file defines subscription tiers and capabilities.
-#
-# IMPORTANT:
-# - Config only (NO UI logic here)
-# - NO enforcement at this step
-# - Used later for soft gating
-# - SEBI-safe by design
+# SUBSCRIPTION CONFIGURATION
+# STEP 3E – HISTORICAL DEPTH GATING
 # =====================================================
 
-# ---- Tier names (single source of truth) ----
-TIER_FREE = "FREE"
-TIER_BASIC = "BASIC"
-TIER_PRO = "PRO"
-TIER_ELITE = "ELITE"
+DEFAULT_USER_TIER = "FREE"
 
-# ---- Ordered tiers (lowest → highest) ----
-SUBSCRIPTION_TIERS = [
-    TIER_FREE,
-    TIER_BASIC,
-    TIER_PRO,
-    TIER_ELITE,
-]
-
-# =====================================================
-# TIER CAPABILITIES
-# =====================================================
-# Notes:
-# - No trade advice is monetized
-# - Limits apply only to visibility / convenience
-# - FREE tier remains fully usable
-# =====================================================
-
-TIER_CONFIG = {
-
-    TIER_FREE: {
+TIERS = {
+    "FREE": {
         "label": "Free",
-        "description": "Basic market analytics and educational insights",
-
-        # Scanner
-        "scanner_max_symbols": 5,
-        "scanner_refresh_seconds": 60,
-
-        # Confidence & ML
-        "show_confidence_label": True,     # LOW / MEDIUM / HIGH
-        "show_confidence_reasons": False,
-        "show_ml_score_numeric": False,
-        "show_ml_explanations": False,
-
-        # Analytics
-        "history_days": 0,                 # summary only
-        "show_backtesting": False,
-
-        # Exports
-        "allow_csv_export": False,
-
-        # Performance
-        "fast_refresh": False,
+        "history_days": 1,          # today only
+        "show_ml_explanation": False,
     },
-
-    TIER_BASIC: {
+    "BASIC": {
         "label": "Basic",
-        "description": "Enhanced visibility and trade review tools",
-
-        "scanner_max_symbols": 10,
-        "scanner_refresh_seconds": 20,
-
-        "show_confidence_label": True,
-        "show_confidence_reasons": True,
-        "show_ml_score_numeric": False,
-        "show_ml_explanations": False,
-
-        "history_days": 14,
-        "show_backtesting": False,
-
-        "allow_csv_export": True,
-
-        "fast_refresh": False,
+        "history_days": 7,
+        "show_ml_explanation": False,
     },
-
-    TIER_PRO: {
+    "PRO": {
         "label": "Pro",
-        "description": "Advanced analytics and ML-assisted context",
-
-        "scanner_max_symbols": 20,
-        "scanner_refresh_seconds": 10,
-
-        "show_confidence_label": True,
-        "show_confidence_reasons": True,
-        "show_ml_score_numeric": True,
-        "show_ml_explanations": True,
-
-        "history_days": 365,
-        "show_backtesting": True,
-
-        "allow_csv_export": True,
-
-        "fast_refresh": True,
+        "history_days": 7,
+        "show_ml_explanation": True,
     },
-
-    TIER_ELITE: {
+    "ELITE": {
         "label": "Elite",
-        "description": "Professional-grade analytics and performance",
-
-        "scanner_max_symbols": None,        # unlimited
-        "scanner_refresh_seconds": 5,
-
-        "show_confidence_label": True,
-        "show_confidence_reasons": True,
-        "show_ml_score_numeric": True,
-        "show_ml_explanations": True,
-
-        "history_days": None,               # full history
-        "show_backtesting": True,
-
-        "allow_csv_export": True,
-
-        "fast_refresh": True,
+        "history_days": None,       # unlimited
+        "show_ml_explanation": True,
     },
 }
 
-# =====================================================
-# DEFAULTS
-# =====================================================
 
-# Default tier for all users (until auth/payment exists)
-DEFAULT_USER_TIER = TIER_FREE
+def get_tier_config(tier: str) -> dict:
+    """
+    Safe tier resolver.
+    Always returns a valid config.
+    """
+    if not tier:
+        return TIERS[DEFAULT_USER_TIER]
 
-# Safety guard
-def get_tier_config(tier: str):
-    """
-    Safe accessor for tier config.
-    Always returns a valid tier config.
-    """
-    return TIER_CONFIG.get(tier, TIER_CONFIG[TIER_FREE])
+    tier = tier.upper()
+    return TIERS.get(tier, TIERS[DEFAULT_USER_TIER])
