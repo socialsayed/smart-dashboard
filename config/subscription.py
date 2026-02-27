@@ -4,8 +4,7 @@
 
 DEFAULT_USER_TIER = "FREE"
 
-# 🔁 Refresh speed control (seconds)
-# Used for STEP 3C – refresh speed gating
+# 🔁 Refresh speed (seconds)
 LIVE_REFRESH = {
     "FREE": 20,
     "BASIC": 15,
@@ -18,21 +17,25 @@ TIERS = {
         "label": "Free",
         "history_days": 1,
         "show_ml_explanation": False,
+        "scanner_symbols": 1,     # current stock only
     },
     "BASIC": {
         "label": "Basic",
         "history_days": 7,
         "show_ml_explanation": False,
+        "scanner_symbols": 3,
     },
     "PRO": {
         "label": "Pro",
         "history_days": 7,
         "show_ml_explanation": True,
+        "scanner_symbols": 8,
     },
     "ELITE": {
         "label": "Elite",
         "history_days": None,
         "show_ml_explanation": True,
+        "scanner_symbols": None,  # unlimited
     },
 }
 
