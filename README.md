@@ -1,64 +1,139 @@
-flowchart TD
-    %% ---------- UI ----------
-    A([START]):::ui --> B[Initialize Streamlit App]:::ui
-    B --> C[Initialize Session State]:::ui
-    C --> D[Read Sidebar Inputs<br/>(Index, Stock, Risk, Strategy)]:::ui
+# 🧠 Smart Market Analytics Dashboard
 
-    %% ---------- DATA ----------
-    D --> E[Load config.py]:::data
-    E --> F[Fetch Live Price<br/>(Cache → NSE → Yahoo)]:::data
-    F --> G[Fetch Intraday Data<br/>(3-Minute Candles)]:::data
+A **subscription-based market analytics and decision-support software** designed to help traders evaluate intraday market structure, risk conditions, and setup quality using transparent, rule-based logic.
 
-    %% ---------- LOGIC ----------
-    G --> H[Check Market Status]:::logic
+> ⚠️ IMPORTANT  
+> This platform does **not** provide investment advice, trading recommendations, or trade execution services.  
+> It is **not registered with SEBI as an Investment Advisor**.
 
-    %% ---------- DECISION ----------
-    H -->|Market Closed| I[Show Market Closed Message]:::ui
-    H -->|Market Open| J[Calculate Indicators]:::logic
+---
 
-    %% ---------- LOGIC DETAILS ----------
-    J --> J1[Compute VWAP]:::logic
-    J --> J2[Compute ORB High / Low]:::logic
-    J --> J3[Compute Volume]:::logic
+## 🎯 What This Platform Is
 
-    J1 --> K
-    J2 --> K
-    J3 --> K
+Smart Market Analytics Dashboard is a professional-grade **analytics and discipline tool** that helps users:
 
-    %% ---------- UI ----------
-    K[Render Intraday Chart]:::ui
-    K --> L[Show Strategy Context<br/>• Why this signal?<br/>• Beginner Help]:::ui
+- Analyze **intraday market structure** (Price, VWAP, ORB, trend)
+- Understand **contextual sentiment** using options data and PCR
+- Apply **rule-based evaluation** to intraday trade setups
+- Practice discipline using an **educational paper trading simulator**
+- Review **why** a setup is considered eligible or not using explainable rules
+- View **historical setup quality context** using optional ML models
 
-    %% ---------- DATA ----------
-    L --> M[Generate Daily Watchlist]:::data
-    M --> N[Get Options Sentiment (PCR)]:::data
+The platform is designed to support **independent decision-making**, not to replace it.
 
-    %% ---------- LOGIC ----------
-    N --> O[Calculate Support & Resistance]:::logic
-    O --> P[Run Trade Decision Engine]:::logic
+---
 
-    %% ---------- DECISION ----------
-    P -->|Trade Allowed| Q[Show Trade Allowed Banner]:::ui
-    P -->|Trade Blocked| R[Show Trade Blocked Reason]:::ui
+## 🚫 What This Platform Is NOT
 
-    %% ---------- SCANNER (PARALLEL, NON-BLOCKING) ----------
-    H -->|Market Open| S1[Run Market Opportunity Scanner]:::logic
-    S1 --> S2[Loop Through Symbol Universe]:::logic
-    S2 --> S3[Reuse SAME Indicators<br/>VWAP • ORB • Trend • PCR]:::logic
-    S3 --> S4[Reuse SAME Trade Decision Engine]:::logic
-    S4 --> S5[Emit BUY / WATCH / AVOID Alerts]:::ui
+- ❌ Not a SEBI-registered investment advisory service  
+- ❌ Not a stock recommendation or tips platform  
+- ❌ Not a trading signal generator  
+- ❌ Not an auto-trading or execution system  
+- ❌ Not a portfolio management service  
+- ❌ Not a prediction or accuracy-based product  
 
-    %% ---------- UI ----------
-    Q --> T[Render Trade History & PnL]:::ui
-    R --> T
-    S5 --> T
+---
 
-    %% ---------- REFRESH LOOP ----------
-    T --> U[Auto-Refresh Timer Check]:::ui
-    U -->|Time Elapsed| B
-    U -->|No Refresh| V([END]):::ui
+## 🧱 High-Level Architecture
 
-    %% ---------- STYLES ----------
-    classDef ui fill:#E3F2FD,stroke:#1565C0,stroke-width:1.5px,color:#0D47A1;
-    classDef logic fill:#E8F5E9,stroke:#2E7D32,stroke-width:1.5px,color:#1B5E20;
-    classDef data fill:#FFF3E0,stroke:#EF6C00,stroke-width:1.5px,color:#E65100;
+```text
+User / Browser
+      │
+      ▼
+Streamlit UI (app.py)
+      │
+      ├── services/        → Market data (Price, Charts, Options, PCR)
+      ├── logic/           → Rule-based evaluation & discipline engine
+      ├── utils/           → Charts, caching, formatting
+      ├── ml/              → Optional advisory ML (schema-locked)
+      └── data_service/    → Shared FastAPI backend for live prices
+```
+
+**Core design principle:**
+
+> **UI orchestrates · Logic evaluates · ML advises (never decides)**
+
+---
+
+## 📂 Project Structure
+
+```text
+smart-dashboard/
+│
+├── app.py                     # Streamlit UI & orchestration
+├── config.py                  # Configuration
+│
+├── services/                  # Market data services
+│   ├── prices.py
+│   ├── charts.py
+│   ├── options.py
+│   ├── nifty_options.py
+│   └── market_time.py
+│
+├── logic/                     # Core rule-based evaluation
+│   ├── evaluate_setup.py
+│   ├── trade_confidence.py
+│   ├── decision.py
+│   ├── market_opportunity_scanner.py
+│   ├── levels.py
+│   └── risk.py
+│
+├── utils/
+│   ├── charts.py
+│   ├── cache.py
+│   └── formatters.py
+│
+├── data/
+│   ├── watchlist.py
+│   └── paper_trades/
+│
+├── data_service/
+│   ├── app.py
+│   ├── cache.py
+│   └── fetchers/
+│       └── prices.py
+│
+├── ml/
+│   ├── features/
+│   ├── inference/
+│   ├── training/
+│   ├── models/
+│   └── data/
+│
+├── requirements.txt
+├── .gitignore
+└── README.md
+```
+
+---
+
+## 🧠 Decision & Evaluation Philosophy
+
+- **Eligibility ≠ Recommendation**
+- Rule-based evaluation only
+- ML is advisory, never decisive
+
+---
+
+## 💰 Subscription & Legal
+
+Subscription fees are charged **only for access to the software platform**.
+
+This platform is **not registered with SEBI as an Investment Advisor** and does **not provide investment advice**.
+
+---
+
+## 🚀 Getting Started
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+---
+
+## 📘 Final Note
+
+> **Process > Outcome**  
+> **Discipline > Frequency**  
+> **Analytics, not advice**

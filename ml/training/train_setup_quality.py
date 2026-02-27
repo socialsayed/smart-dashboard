@@ -1,89 +1,57 @@
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-import joblib
-import os
+"""
+Training pipeline for setup quality ML model.
 
-DATA_FILE = "ml/data/trade_context.csv"
+SCHEMA RULE:
+- Must use FEATURE_COLUMNS
+- Feature order is LOCKED
+"""
+
+import pandas as pd
+import pickle
+from sklearn.ensemble import RandomForestClassifier
+
+from ml.features.schema import FEATURE_COLUMNS, SCHEMA_VERSION
+from ml.features.feature_builder import build_feature_vector
+
+
+DATA_PATH = "ml/data/trade_context.csv"
 MODEL_PATH = "ml/models/setup_quality.pkl"
 
-# =====================================================
-# LOAD DATA
-# =====================================================
-if not os.path.exists(DATA_FILE):
-    raise FileNotFoundError(
-        "❌ trade_context.csv not found. Run log_trade_context.py first."
+
+def train_model():
+    df = pd.read_csv(DATA_PATH)
+
+    # Ensure all required features exist
+    for col in FEATURE_COLUMNS:
+        if col not in df.columns:
+            df[col] = 0.0
+
+    X = []
+    y = []
+
+    for _, row in df.iterrows():
+        features = {col: row[col] for col in FEATURE_COLUMNS}
+        X.append(build_feature_vector(features))
+        y.append(int(row.get("outcome", 0)))
+
+    model = RandomForestClassifier(
+        n_estimators=200,
+        max_depth=6,
+        random_state=42,
+        class_weight="balanced",
     )
 
-df = pd.read_csv(DATA_FILE)
+    model.fit(X, y)
 
-# =====================================================
-# TARGET
-# =====================================================
-y = df["target"]
+    with open(MODEL_PATH, "wb") as f:
+        pickle.dump(model, f)
 
-# =====================================================
-# FEATURE CLEANING & ENCODING
-# =====================================================
-X = df.drop(
-    columns=["target", "timestamp", "symbol"],
-    errors="ignore"
-)
+    print(
+        f"✅ Model trained successfully | "
+        f"Features={len(FEATURE_COLUMNS)} | "
+        f"Schema v{SCHEMA_VERSION}"
+    )
 
-# --- Encode SIDE ---
-if "side" in X.columns:
-    X["side"] = X["side"].map({
-        "BUY": 1,
-        "SELL": -1
-    }).fillna(0)
 
-# --- Encode OPTIONS BIAS ---
-if "options_bias" in X.columns:
-    X["options_bias"] = X["options_bias"].map({
-        "BULLISH": 1,
-        "NEUTRAL": 0,
-        "BEARISH": -1
-    }).fillna(0)
-
-# --- Encode STRATEGY (simple ordinal) ---
-if "strategy" in X.columns:
-    X["strategy"] = X["strategy"].astype("category").cat.codes
-
-# --- Final safety ---
-X = X.fillna(0)
-
-# =====================================================
-# TRAIN / TEST SPLIT
-# =====================================================
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.25,
-    random_state=42,
-    stratify=y if y.nunique() > 1 else None
-)
-
-# =====================================================
-# MODEL
-# =====================================================
-model = RandomForestClassifier(
-    n_estimators=300,
-    max_depth=6,
-    min_samples_leaf=5,
-    random_state=42,
-    n_jobs=-1
-)
-
-model.fit(X_train, y_train)
-
-# =====================================================
-# SAVE MODEL
-# =====================================================
-os.makedirs("ml/models", exist_ok=True)
-joblib.dump(model, MODEL_PATH)
-
-accuracy = model.score(X_test, y_test)
-
-print("✅ Model trained successfully")
-print(f"📊 Validation Accuracy: {accuracy:.2%}")
-print(f"💾 Model saved to {MODEL_PATH}")
+if __name__ == "__main__":
+    train_model()

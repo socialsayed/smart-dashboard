@@ -1,16 +1,21 @@
 """
-Trade setup evaluation logic.
-Used by app.py to validate trade conditions and build context snapshots.
+Trade setup validation logic.
+Used by app.py and scanners as a HARD RULE GATE.
 
-IMPORTANT DESIGN RULE:
+DESIGN RULES (LOCKED):
 - Indicators are OPTIONAL
 - Validation must NEVER crash
-- Output contract is FROZEN
+- This file DOES NOT compute confidence
+- ML is NOT referenced here
+- Output contract is STABLE
 """
 
 from typing import Dict, List
 
 
+# =====================================================
+# 🔍 SAFE INDICATOR SNAPSHOT
+# =====================================================
 def _build_indicator_snapshot(df, price) -> Dict:
     """
     Safely build latest indicator snapshot.
@@ -43,83 +48,98 @@ def _build_indicator_snapshot(df, price) -> Dict:
     return snapshot
 
 
+# =====================================================
+# 🧠 HARD TRADE VALIDATION (NO SCORING)
+# =====================================================
 def evaluate_trade_setup(
     symbol: str,
     df,
     price: float,
     mode: str = "INDEX",
     strategy: str = "ORB",
-    **kwargs,   # absorbs index_pcr, stock_pcr, etc
+    **kwargs,   # absorbs index_pcr, options_bias, risk_context, etc
 ) -> Dict:
     """
-    Evaluate whether a trade setup is valid.
+    HARD validation gate only.
 
-    OUTPUT CONTRACT (DO NOT BREAK):
+    OUTPUT CONTRACT (LOCKED):
     - allowed: bool
-    - confidence: int (0–100)
-    - confidence_label: str
+    - block_reason: str | None
     - reasons: list[str]
     - snapshot: dict
     """
 
     reasons: List[str] = []
 
-    # --- Basic sanity check ---
+    # -------------------------------------------------
+    # 1️⃣ BASIC PRICE SANITY (HARD FAIL)
+    # -------------------------------------------------
     if price is None or price <= 0:
         return {
             "allowed": False,
-            "confidence": 0,
-            "confidence_label": "LOW",
-            "is_valid": False,
+            "block_reason": "Invalid or missing live price",
             "reasons": ["Invalid or missing live price"],
             "snapshot": {},
         }
 
-    # --- Indicators (safe) ---
+    # -------------------------------------------------
+    # 2️⃣ BUILD INDICATOR SNAPSHOT (SAFE)
+    # -------------------------------------------------
     snap = _build_indicator_snapshot(df, price)
 
-    # --- Strategy logic ---
+    # -------------------------------------------------
+    # 3️⃣ STRATEGY-SPECIFIC HARD FILTERS
+    # -------------------------------------------------
     if strategy == "ORB":
         if snap["vwap"] is not None:
+            # Too far from VWAP = poor ORB quality
             if abs(price - snap["vwap"]) / price > 0.01:
-                reasons.append("Price too far from VWAP for clean ORB entry")
+                reasons.append(
+                    "Price too far from VWAP for clean ORB entry"
+                )
         else:
-            reasons.append("VWAP unavailable (using price action only)")
+            # VWAP missing is NOT a hard block
+            reasons.append(
+                "VWAP unavailable (ORB evaluated using price action only)"
+            )
 
     elif strategy == "VWAP_MEAN_REVERSION":
         if snap["vwap"] is None:
-            reasons.append("VWAP unavailable for mean reversion strategy")
+            reasons.append(
+                "VWAP unavailable for mean reversion strategy"
+            )
         else:
             if abs(price - snap["vwap"]) / price < 0.002:
-                reasons.append("Price too close to VWAP, no edge")
+                reasons.append(
+                    "Price too close to VWAP, no mean-reversion edge"
+                )
 
-    # --- Optional filters ---
+    # -------------------------------------------------
+    # 4️⃣ RSI EXTREMES (HARD RISK FILTER)
+    # -------------------------------------------------
     if snap["rsi"] is not None:
         if snap["rsi"] > 80:
             reasons.append("RSI extremely overbought")
         elif snap["rsi"] < 20:
             reasons.append("RSI extremely oversold")
 
+    # -------------------------------------------------
+    # 5️⃣ EMA STRUCTURE FILTER (HARD TREND CHECK)
+    # -------------------------------------------------
     if snap["ema_20"] is not None and snap["ema_50"] is not None:
         if snap["ema_20"] < snap["ema_50"]:
-            reasons.append("Short-term trend below medium-term EMA")
+            reasons.append(
+                "Short-term trend below medium-term EMA"
+            )
 
-    # --- Final decision ---
-    is_valid = len(reasons) == 0
-    confidence_score = 100 if is_valid else 0
-
-    if confidence_score >= 80:
-        confidence_label = "HIGH"
-    elif confidence_score >= 50:
-        confidence_label = "MEDIUM"
-    else:
-        confidence_label = "LOW"
+    # -------------------------------------------------
+    # 6️⃣ FINAL HARD DECISION
+    # -------------------------------------------------
+    allowed = len(reasons) == 0
 
     return {
-        "allowed": is_valid,
-        "confidence": confidence_score,
-        "confidence_label": confidence_label,
-        "is_valid": is_valid,
+        "allowed": allowed,
+        "block_reason": reasons[0] if not allowed else None,
         "reasons": reasons,
         "snapshot": snap,
     }
