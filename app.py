@@ -1263,66 +1263,98 @@ with tabs[0]:
     if "alert_state" not in st.session_state:
         st.session_state.alert_state = set()
 
-    # =====================================================
-    # 🔎 MARKET OPPORTUNITY SCANNER OUTPUT
-    # =====================================================
-
-    if open_now and st.session_state.scanner_ready:
-        st.subheader("🔎 Market Condition Scanner")
-
-        st.caption(
-            "ℹ️ The Market Condition Scanner classifies symbols based on "
-            "price structure, VWAP, ORB, and sentiment alignment. "
-            "It highlights **market context only** — "
-            "**not trade signals or recommendations**."
+        # =====================================================
+        # 🔎 MARKET OPPORTUNITY SCANNER OUTPUT (SOFT-GATED)
+        # =====================================================
+    
+        # ---- Subscription context (STEP 3B) ----
+        from config.subscription import (
+            DEFAULT_USER_TIER,
+            get_tier_config,
         )
-
-        scanner_results = run_market_opportunity_scanner(
-            scan_symbols,
-            direction=st.session_state.direction
-        )
-        st.session_state.scanner_ready = False
-
-        if not scanner_results:
-            st.info(
-                "ℹ️ No symbols currently meet the defined market condition criteria. "
-                "This does not imply a trading opportunity or restriction."
+    
+        # Current user tier (no auth yet)
+        user_tier = st.session_state.get("user_tier", DEFAULT_USER_TIER)
+        tier_cfg = get_tier_config(user_tier)
+    
+        scanner_limit = tier_cfg.get("scanner_max_symbols")
+        scanner_refresh_seconds = tier_cfg.get("scanner_refresh_seconds", 30)
+    
+        if open_now and st.session_state.scanner_ready:
+            st.subheader("🔎 Market Condition Scanner")
+    
+            st.caption(
+                "ℹ️ The Market Condition Scanner highlights **market conditions only**. "
+                "Results are analytical and educational — **not trade signals or advice**."
             )
-        else:
-            for res in scanner_results:
-
-                symbol = res.get("symbol", "—")
-                status = res.get("status", "UNKNOWN")
-                confidence = res.get("confidence", "LOW")
-                
-                reasons = res.get("reasons")
-                if not reasons:
-                    reasons = ["No detailed rationale available (scanner signal only)"]
-
-                ml_badge = ""
-                if "ml_score" in res and res["ml_score"] is not None:
-                    ml_badge = f" | 🤖 ML: {int(res['ml_score'] * 100)}"
-
-                if status == "BUY":
-                    st.success(
-                        f"🟢 Favorable Conditions: {symbol} | Setup Quality: {confidence}{ml_badge}\n"
-                        + "\n".join(f" • {r}" for r in reasons)
-                    )
-                elif status == "WATCH":
-                    st.warning(
-                        f"🟡 Neutral / Developing Conditions: {symbol} | Setup Quality: {confidence}{ml_badge}\n"
-                        + "\n".join(f" • {r}" for r in reasons)
-                    )
-                else:
-                    st.error(
-                        f"🔴 Unfavorable Conditions: {symbol} | Setup Quality: {confidence}{ml_badge}\n"
-                        + "\n".join(f" • {r}" for r in reasons)
-                    )
-                    
-        st.caption(
-            "ℹ️ Scanner classifications reflect **market conditions only**. "
-            "They are **not trade calls, signals, or recommendations**."
-        )
+    
+            scanner_results = run_market_opportunity_scanner(
+                scan_symbols,
+                direction=st.session_state.direction
+            )
+    
+            st.session_state.scanner_ready = False
+    
+            # ---- SOFT GATE: limit visible results ----
+            if scanner_limit is not None:
+                visible_results = scanner_results[:scanner_limit]
+            else:
+                visible_results = scanner_results
+    
+            if not visible_results:
+                st.info(
+                    "ℹ️ No symbols currently meet the defined market condition criteria. "
+                    "This does not imply a trading opportunity or restriction."
+                )
+            else:
+                for res in visible_results:
+    
+                    symbol = res.get("symbol", "—")
+                    status = res.get("status", "UNKNOWN")
+                    confidence = res.get("confidence", "LOW")
+    
+                    reasons = res.get("reasons") or [
+                        "No detailed rationale available (scanner context only)"
+                    ]
+    
+                    ml_badge = ""
+                    if (
+                        tier_cfg.get("show_ml_score_numeric")
+                        and "ml_score" in res
+                        and res["ml_score"] is not None
+                    ):
+                        ml_badge = f" | 🤖 ML: {int(res['ml_score'] * 100)}"
+    
+                    if status == "BUY":
+                        st.success(
+                            f"🟢 Favorable Conditions: {symbol} | "
+                            f"Setup Quality: {confidence}{ml_badge}\n"
+                            + "\n".join(f" • {r}" for r in reasons)
+                        )
+                    elif status == "WATCH":
+                        st.warning(
+                            f"🟡 Developing Conditions: {symbol} | "
+                            f"Setup Quality: {confidence}{ml_badge}\n"
+                            + "\n".join(f" • {r}" for r in reasons)
+                        )
+                    else:
+                        st.error(
+                            f"🔴 Unfavorable Conditions: {symbol} | "
+                            f"Setup Quality: {confidence}{ml_badge}\n"
+                            + "\n".join(f" • {r}" for r in reasons)
+                        )
+    
+            # ---- Tier visibility note (non-intrusive) ----
+            if scanner_limit is not None and len(scanner_results) > scanner_limit:
+                st.caption(
+                    f"ℹ️ Showing top {scanner_limit} results for **{user_tier}** tier. "
+                    "Additional symbols are hidden to reduce noise."
+                )
+    
+            st.caption(
+                "ℹ️ Scanner classifications reflect **market context only**. "
+                "They are **not trade calls or recommendations**."
+            )
 
 
     # =====================================================
