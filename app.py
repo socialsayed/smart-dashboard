@@ -1357,26 +1357,46 @@ with tabs[0]:
             )
 
 
-    # =====================================================
-    # 🔄 LIVE REFRESH STATUS
-    # =====================================================
-    refresh_interval = LIVE_REFRESH if open_now else 20
-
-    c1, c2 = st.columns([0.7, 0.3])
-
-    with c1:
-        st.caption(
-            f"🔄 Auto-refresh every **{refresh_interval}s** "
-            f"({'Market Open' if open_now else 'Market Closed'})"
+        # =====================================================
+        # 🔄 LIVE REFRESH STATUS (SOFT-GATED BY TIER)
+        # =====================================================
+    
+        # ---- Subscription context (STEP 3C) ----
+        from config.subscription import (
+            DEFAULT_USER_TIER,
+            get_tier_config,
         )
-
-    with c2:
-        st.caption(
-            f"🕒 Last update: {now_ist().strftime('%H:%M:%S')} IST"
-        )
-
-    # 🔁 Silent background refresh (NO UI impact)
-    background_refresh(stock, open_now)
+    
+        user_tier = st.session_state.get("user_tier", DEFAULT_USER_TIER)
+        tier_cfg = get_tier_config(user_tier)
+    
+        # Base refresh (existing config)
+        base_refresh = LIVE_REFRESH if open_now else 20
+    
+        # ---- SOFT GATE: refresh speed ----
+        # Free / Basic → slower
+        # Pro / Elite  → full speed
+        if open_now:
+            if tier_cfg.get("fast_refresh"):
+                refresh_interval = base_refresh
+            else:
+                # degrade gently, never block
+                refresh_interval = max(base_refresh * 2, 15)
+        else:
+            refresh_interval = 20
+    
+        c1, c2 = st.columns([0.7, 0.3])
+    
+        with c1:
+            st.caption(
+                f"🔄 Auto-refresh every **{refresh_interval}s** "
+                f"({'Market Open' if open_now else 'Market Closed'})"
+            )
+    
+        with c2:
+            st.caption(
+                f"🕒 Last update: {now_ist().strftime('%H:%M:%S')} IST"
+            )
 
     # =====================================================
     # LIVE PRICE (TERMINAL-GRADE)
