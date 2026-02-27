@@ -7,6 +7,8 @@ import streamlit as st
 import pandas as pd
 import config
 
+from datetime import datetime
+
 def validate_nse_symbol(symbol: str) -> bool:
     """
     Validates whether a given symbol exists on NSE
@@ -31,6 +33,7 @@ LIVE_REFRESH = config.LIVE_REFRESH
 # --- Market & Price ---
 from services.market_time import now_ist, market_status
 from services.prices import live_price
+import requests
 from services.options import get_pcr
 from services.charts import get_intraday_data
 
@@ -365,7 +368,12 @@ def load_day_trades():
         "Trade ID",
         "Date",
         "Symbol",
+    
+        # 🔒 Direction of trade (LOCKED)
+        # BUY  = Long
+        # SELL = Short
         "Side",
+    
         "Entry",
         "Exit",
         "Qty",
@@ -465,37 +473,85 @@ def cached_daily_watchlist(symbols, trade_date):
 # =====================================================
 def get_live_price_fast(symbol, min_interval=1.5):
     """
-    Ultra-fast price fetch with in-memory throttle.
-    Prevents full app reruns.
+    Fetch live price via shared data service.
+    Tracks server timestamp for freshness labeling.
     """
+
     key = f"_fast_price_{symbol}"
 
     if key not in st.session_state:
         st.session_state[key] = {
-            "ts": 0,
+            "ts": None,          # server timestamp
+            "poll_ts": 0,        # local poll throttle
             "price": None,
-            "src": None
+            "src": None,
         }
 
     slot = st.session_state[key]
     now = time.time()
 
-    if now - slot["ts"] >= min_interval:
+    if now - slot["poll_ts"] >= min_interval:
         try:
-            slot["price"], slot["src"] = live_price(symbol)
+            resp = requests.get(
+                f"http://127.0.0.1:8000/price/{symbol}",
+                timeout=0.8
+            )
+
+            if resp.status_code == 200:
+                data = resp.json()
+                slot["price"] = data.get("price")
+                slot["src"] = "SHARED_LIVE"
+
+                # ✅ server timestamp (UTC ISO)
+                ts = data.get("timestamp")
+                if ts:
+                    slot["ts"] = datetime.fromisoformat(ts).timestamp()
+
+            else:
+                raise RuntimeError("Shared service error")
+
         except Exception:
-            pass
-        slot["ts"] = now
+            # Fallback
+            try:
+                slot["price"], slot["src"] = live_price(symbol)
+                slot["ts"] = time.time()
+            except Exception:
+                pass
+
+        slot["poll_ts"] = now
 
     return slot["price"], slot["src"]
     
 # =====================================================
 # 🔁 PRICE POLLING (NO RERUN, NO UI RESET)
 # =====================================================
+def price_freshness_label(price_ts):
+    """
+    Returns (label, emoji, age_seconds)
+    """
+    if not price_ts:
+        return "DELAYED", "🔴", None
+
+    age = time.time() - price_ts
+
+    if age <= 3:
+        return "LIVE", "🟢", int(age)
+    if age <= 15:
+        return "NEAR-LIVE", "🟡", int(age)
+    return "DELAYED", "🔴", int(age)
+    
 def poll_price(symbol):
+    """
+    Poll live price safely and update session_state.
+    This function is REQUIRED because the UI calls it.
+    """
+
     price, src = get_live_price_fast(symbol)
+
     if price is not None:
         st.session_state.last_price_metric = price
+
+    return price, src    
 
 # =====================================================
 # 🔁 BACKGROUND DATA REFRESH (NON-DISRUPTIVE)
@@ -570,9 +626,9 @@ def index_pcr_status_action(pcr: float):
 # PAGE CONFIG
 # =====================================================
 st.set_page_config(
-    page_title=config.APP_TITLE,
+    page_title="Smart Market Analytics — Intraday Decision Support",
     layout="wide",
-    initial_sidebar_state="expanded"  # ✅ FIX
+    initial_sidebar_state="expanded"
 )
 
 st.markdown(
@@ -814,12 +870,11 @@ with tabs[0]:
     # =====================================================
     # HEADER
     # =====================================================
-    st.title("📊 Smart Intraday Trading Dashboard")
-
-    st.warning(
-        "⚠️ This dashboard is for *market analysis and educational purposes only*. "
-        "It does *NOT* provide investment advice, does *NOT* execute real trades, "
-        "and is *NOT registered with SEBI*."
+    st.title("📊 Smart Market Analytics Dashboard")
+    
+    st.caption(
+        "A professional intraday **market analytics & decision-support platform**. "
+        "Provides rule-based evaluation and educational insights — **not investment advice**."
     )
 
     # =====================================================
@@ -880,10 +935,10 @@ with tabs[0]:
     # 📌 MARKET SELECTION (INPUT ONLY)
     # =====================================================
     
-    st.sidebar.subheader("📌 Market Selection")
+    st.sidebar.subheader("📌 Market Context Selection")
     
     stock_mode = st.sidebar.radio(
-        "Stock Selection Mode",
+        "Symbol Selection Mode (For Analysis)",
         ["Index Based", "Manual Stock"],
         help="Choose stocks from index or manually search any NSE stock"
     )
@@ -906,7 +961,7 @@ with tabs[0]:
     if stock_mode == "Manual Stock":
         manual_stock = st.sidebar.text_input(
             "Search Stock (Symbol or Name)",
-            placeholder="e.g. RELIANCE, TCS, INFY",
+            placeholder="e.g. RELIANCE, TCS, INFY (Analysis only)",
         ).upper().strip()
         
         manual_symbol = manual_stock   # ← THIS is “immediately after”
@@ -946,15 +1001,42 @@ with tabs[0]:
     st.session_state.stock = stock
     
     # =====================================================
+    # 🎯 TRADE DIRECTION SELECTION
+    # =====================================================
+    
+    st.sidebar.markdown("### 🎯 Directional Bias (Interpretation)")
+    
+    # Safety guardrail for shorts
+    enable_short = st.sidebar.checkbox(
+        "⚠️ Enable Short Bias Analysis (Advanced)",
+        value=False,
+        help="Short selling is advanced and risky. Enable only if you fully understand short trade mechanics."
+    )
+    
+    direction = st.sidebar.selectbox(
+        "Select Directional Bias",
+        options=["BUY", "SELL"],
+        index=0,
+        disabled=not enable_short,
+    )
+    
+    # Absolute safety fallback
+    if direction == "SELL" and not enable_short:
+        direction = "BUY"
+    
+    # Persist direction
+    st.session_state.direction = direction
+    
+    # =====================================================
     # SIDEBAR – RISK LIMITS
     # =====================================================
     st.sidebar.header(
-        "🛡 Risk Limits",
+        "🛡 Personal Risk Discipline Limits",
         help="Daily risk controls to enforce discipline."
     )
 
     max_trades = st.sidebar.number_input(
-        "Max Trades / Day",
+        "Max Simulated Trades / Day",
         min_value=1,
         max_value=1000,
         value=st.session_state.max_trades,
@@ -962,7 +1044,7 @@ with tabs[0]:
     )
 
     max_loss = st.sidebar.number_input(
-        "Max Loss / Day (₹)",
+        "Max Simulated Loss / Day (₹)",
         min_value=1000,
         max_value=500000,
         value=st.session_state.max_loss,
@@ -973,19 +1055,19 @@ with tabs[0]:
     # SIDEBAR – STRATEGY MODE
     # =====================================================
     st.sidebar.header(
-        "🧠 Strategy Mode",
+        "🧠 Strategy Lens (Interpretation)",
         help="Choose the strategy lens for interpretation."
     )
 
     strategy = st.sidebar.radio(
-        "Choose Strategy",
+        "Choose Strategy Lens",
         ["ORB Breakout", "VWAP Mean Reversion"],
         key="strategy"
     )
 
     if strategy == "ORB Breakout":
         st.sidebar.info(
-            "📈 **ORB Breakout Strategy**\n\n"
+            "📈 **ORB Breakout (Interpretation Lens)**\n\n"
             "• First 15 minutes define range\n"
             "• Trade break of ORB High / Low\n"
             "• Works best on trending days\n"
@@ -993,7 +1075,7 @@ with tabs[0]:
         )
     else:
         st.sidebar.info(
-            "📉 **VWAP Mean Reversion Strategy**\n\n"
+            "📉 **VWAP Mean Reversion (Interpretation Lens)**\n\n"
             "• VWAP = institutional fair price\n"
             "• Trade pullbacks & rejections\n"
             "• Best on balanced / sideways days"
@@ -1007,7 +1089,7 @@ with tabs[0]:
     # =====================================================
     # ℹ️ SIDEBAR – APP GUIDE / HOW TO USE
     # =====================================================
-    with st.sidebar.expander("ℹ️ App Guide – What This Tool Does", expanded=False):
+    with st.sidebar.expander("ℹ️ App Guide – How to Interpret This Tool", expanded=False):
     
         st.markdown("""
     ### 🎯 What is this app?
@@ -1138,9 +1220,11 @@ with tabs[0]:
     Process > Outcome
     """)
     
-
-
-
+    st.sidebar.caption(
+        "ℹ️ Sidebar settings define **analysis context and personal discipline limits only**. "
+        "They do **not** place trades, execute orders, or generate investment recommendations."
+    )
+    
     # =====================================================
     # 🔧 SCANNER SYMBOL SELECTION (FIXED – READ ONLY)
     # =====================================================
@@ -1184,19 +1268,26 @@ with tabs[0]:
     # =====================================================
 
     if open_now and st.session_state.scanner_ready:
-        st.subheader("🔎 Market Opportunities")
+        st.subheader("🔎 Market Condition Scanner")
 
         st.caption(
-        "ℹ️ The Market Scanner highlights stocks meeting predefined conditions "
-        "based on price structure, VWAP, ORB, and sentiment. "
-        "**It does NOT recommend trades.**"
-    )
+            "ℹ️ The Market Condition Scanner classifies symbols based on "
+            "price structure, VWAP, ORB, and sentiment alignment. "
+            "It highlights **market context only** — "
+            "**not trade signals or recommendations**."
+        )
 
-        scanner_results = run_market_opportunity_scanner(scan_symbols)
+        scanner_results = run_market_opportunity_scanner(
+            scan_symbols,
+            direction=st.session_state.direction
+        )
         st.session_state.scanner_ready = False
 
         if not scanner_results:
-            st.info("ℹ️ No valid trade setups found for the selected stock.")
+            st.info(
+                "ℹ️ No symbols currently meet the defined market condition criteria. "
+                "This does not imply a trading opportunity or restriction."
+            )
         else:
             for res in scanner_results:
 
@@ -1214,19 +1305,24 @@ with tabs[0]:
 
                 if status == "BUY":
                     st.success(
-                        f"🟢 BUY SETUP: {symbol} | Confidence: {confidence}{ml_badge}\n"
+                        f"🟢 Favorable Conditions: {symbol} | Setup Quality: {confidence}{ml_badge}\n"
                         + "\n".join(f" • {r}" for r in reasons)
                     )
                 elif status == "WATCH":
                     st.warning(
-                        f"🟡 WATCH: {symbol} | Confidence: {confidence}{ml_badge}\n"
+                        f"🟡 Neutral / Developing Conditions: {symbol} | Setup Quality: {confidence}{ml_badge}\n"
                         + "\n".join(f" • {r}" for r in reasons)
                     )
                 else:
                     st.error(
-                        f"🔴 AVOID: {symbol} | Confidence: {confidence}{ml_badge}\n"
+                        f"🔴 Unfavorable Conditions: {symbol} | Setup Quality: {confidence}{ml_badge}\n"
                         + "\n".join(f" • {r}" for r in reasons)
                     )
+                    
+        st.caption(
+            "ℹ️ Scanner classifications reflect **market conditions only**. "
+            "They are **not trade calls, signals, or recommendations**."
+        )
 
 
     # =====================================================
@@ -1273,7 +1369,10 @@ with tabs[0]:
 
     poll_price(stock)
     price = st.session_state.get("last_price_metric")
-    src = "LIVE"
+
+    price_slot = st.session_state.get(f"_fast_price_{stock}")
+    price_ts = price_slot.get("ts") if price_slot else None
+    
 
     # Initialize previous close ONCE
     if st.session_state.prev_close is None and price is not None:
@@ -1296,12 +1395,23 @@ with tabs[0]:
     if price is not None and open_price is not None:
         delta = round(price - open_price, 2)
 
+    price_slot = st.session_state.get(f"_fast_price_{stock}")
+    price_ts = price_slot.get("ts") if price_slot else None
+    
+    label, emoji, age = price_freshness_label(price_ts)
+    
     st.metric(
         stock,
         f"{price:.2f}" if price is not None else "—",
         delta=f"{delta:+.2f}" if delta is not None else None,
-        help=f"Source: {src}"
     )
+    
+    # ✅ VISIBLE freshness badge
+    if label:
+        st.caption(
+            f"{emoji} **{label}**"
+            + (f" · {age}s old" if age is not None else "")
+        )
 
     # 🔥 UPDATE LAST PRICE AFTER UI RENDER
     if price is not None:
@@ -1903,70 +2013,103 @@ with tabs[0]:
             st.warning(a)
 
     st.caption(
-        "ℹ️ Trade status reflects *rule validation*, not a recommendation to trade."
+        "ℹ️ This evaluation reflects **rule validation and analytical context only**. "
+        "It is **not a trade call, signal, or recommendation**."
     )
 
     # =====================================================
     # 📈 TRADE DECISION ENGINE (UNIFIED – SINGLE SOURCE)
     # =====================================================
     
-    result = evaluate_trade_setup(
+    from logic.trade_confidence import (
+        calculate_trade_confidence,
+        confidence_label,
+    )
+    
+    # --- HARD VALIDATION (RULE GATE) ---
+    validation = evaluate_trade_setup(
         symbol=stock,
         df=st.session_state.last_intraday_df,
         price=price,
-        index_pcr=index_pcr,
-        options_bias=options_bias,
-        risk_context={
-            "trades": st.session_state.trades,
-            "pnl": st.session_state.pnl,
-            "max_trades": max_trades,
-            "max_loss": max_loss,
-        },
+        strategy="ORB" if strategy == "ORB Breakout" else "VWAP_MEAN_REVERSION",
         mode="MANUAL",
     )
     
-    allowed = result["allowed"]
-    confidence_score = result["confidence"]
-    confidence_label_text = result["confidence_label"]
-    reason = result.get("block_reason", "")
-    reasons = result.get("reasons", [])
-    ml_score = result.get("ml_score")
+    allowed = validation["allowed"]
+    block_reason = validation.get("block_reason")
+    reasons = validation.get("reasons", [])
+    snapshot = validation.get("snapshot", {})
+    
+    confidence_score = 0
+    confidence_label_text = "NO_TRADE"
+    confidence_reasons = []
+    
+    # --- CONFIDENCE SCORING (ONLY IF ALLOWED) ---
+    if allowed and price is not None:
+        confidence_score, confidence_reasons = calculate_trade_confidence(
+            snapshot=snapshot,
+            price=price,
+            direction=st.session_state.direction,
+            index_pcr=index_pcr,
+            options_bias=options_bias,
+            risk_context={
+                "trades": st.session_state.trades,
+                "pnl": st.session_state.pnl,
+            },
+        )
+        confidence_label_text = confidence_label(confidence_score)
     
     # =====================================================
     # 🧠 TRADE DECISION OUTPUT (UI)
     # =====================================================
     
+    # ---- PRIMARY: RULE-BASED STATUS (NOT A RECOMMENDATION) ----
     if allowed:
         st.success(
-            f"✅ Trade Allowed | Confidence: {confidence_score} "
-            f"({confidence_label_text})"
+            f"✅ Setup Eligible (Rules Passed) | "
+            f"Quality Score: {confidence_score}/100 ({confidence_label_text})"
         )
     else:
-        st.warning(
-            f"🚫 Trade Blocked: {reason} | "
-            f"Confidence: {confidence_score} "
-            f"({confidence_label_text})"
+        st.error(
+            f"🚫 Setup Ineligible (Rules Failed) | Reason: {block_reason}"
         )
     
-    # ---- Why this decision ----
-    if reasons:
-        with st.expander("📌 Why this decision?"):
-            for r in reasons:
-                st.write(f"- {r}")
+    # ---- WHY THIS DECISION ----
+    if reasons or confidence_reasons:
+        with st.expander("📌 Why this evaluation? (Rule & Context Breakdown)"):
+            if reasons:
+                st.markdown("**Rule Validation:**")
+                for r in reasons:
+                    st.write(f"- {r}")
     
-    # ---- ML Advisory ----
+            if confidence_reasons:
+                st.markdown("**Setup Quality Factors (Non-Predictive):**")
+                for r in confidence_reasons:
+                    st.write(f"- {r}")
+    
+    # =====================================================
+    # 🤖 ML ADVISORY (SECONDARY – HISTORICAL CONTEXT ONLY)
+    # =====================================================
+    
+    ml_score = st.session_state.get("ml_score")
+    
     if ml_score is not None:
         ml_pct = int(ml_score * 100)
+    
         st.info(
-            f"🤖 ML Setup Quality (Advisory): {ml_pct}/100\n\n"
-            "ML is advisory only. Rule engine always dominates."
+            f"🤖 **ML Setup Quality (Educational Context Only)**\n\n"
+            f"- Historical similarity score: **{ml_pct}/100**\n"
+            f"- Derived from past market behavior patterns\n\n"
+            f"ℹ️ This score is **not predictive** and **not a recommendation**.\n"
+            f"ℹ️ It does not permit, block, or suggest trades.\n"
+            f"✔ Final eligibility is always determined by rule-based validation."
         )
     
     # =====================================================
     # 🧪 PAPER TRADE SIMULATOR (EXECUTION CONTROLS)
     # =====================================================
     st.subheader(
-        "🧪 Paper Trade Simulator",
+        "🧪 Paper Trade Simulator (Educational Only)",
         help=SECTION_HELP["paper_trade"]
     )
 
@@ -1981,66 +2124,87 @@ with tabs[0]:
     col1, col2 = st.columns(2)
 
     # -------------------------
-    # BUY
+    # BUY / SELL (OPEN POSITION)
     # -------------------------
     with col1:
-        if st.button("📈 BUY (Paper Trade)", use_container_width=True):
-
+        action_label = (
+            "📈 Simulate BUY (Long)"
+            if st.session_state.direction == "BUY"
+            else "📉 Simulate SELL (Short)"
+        )
+    
+        if st.button(action_label, use_container_width=True):
+    
             if not allowed:
-                st.error(f"❌ Trade blocked: {reason}")
+                st.error(f"❌ Trade blocked: {block_reason}")
             elif ltp is None:
                 st.error("❌ Live price unavailable.")
             else:
-                trade_id = generate_trade_id()
-                entry_time = now_ist().strftime("%H:%M:%S")
-
-                trade_row = {
-                    "Trade ID": trade_id,
-                    "Date": get_trade_date(),
-                    "Symbol": stock,
-                    "Side": "BUY",
-                    "Entry": round(ltp, 2),
-                    "Exit": None,
-                    "Qty": qty,
-                    "PnL": 0.0,
-                    "Entry Time": entry_time,
-                    "Exit Time": None,
-                    "Strategy": strategy,
-                    "Options Bias": options_bias,
-                    "Market Status": "OPEN",
-                    "Notes": "",
-                    "Status": "OPEN",
-                }
-
-                append_trade(trade_row)
-
-                st.success(f"📈 BUY executed | {stock} @ {ltp}")
-
-                # 🔁 Reload + recompute risk
-                st.session_state.history = load_day_trades()
-                refresh_risk_from_history()
-                st.rerun()
+                # Prevent multiple open positions on same symbol
+                open_trades = [
+                    t for t in load_day_trades()
+                    if t["Symbol"] == stock and t["Status"] == "OPEN"
+                ]
+    
+                if open_trades:
+                    st.warning("⚠️ An OPEN position already exists for this stock. Exit it first.")
+                else:
+                    trade_id = generate_trade_id()
+                    entry_time = now_ist().strftime("%H:%M:%S")
+    
+                    trade_row = {
+                        "Trade ID": trade_id,
+                        "Date": get_trade_date(),
+                        "Symbol": stock,
+                        "Side": st.session_state.direction,   # BUY or SELL
+                        "Entry": round(ltp, 2),
+                        "Exit": None,
+                        "Qty": qty,
+                        "PnL": 0.0,
+                        "Entry Time": entry_time,
+                        "Exit Time": None,
+                        "Strategy": strategy,
+                        "Options Bias": options_bias,
+                        "Market Status": "OPEN",
+                        "Notes": "",
+                        "Status": "OPEN",
+                    }
+    
+                    append_trade(trade_row)
+    
+                    st.success(
+                        f"{action_label} recorded | {stock} @ {ltp} (Paper Trade)"
+                    )
+    
+                    st.session_state.history = load_day_trades()
+                    refresh_risk_from_history()
+                    st.rerun()
 
     # -------------------------
-    # EXIT (LATEST OPEN)
+    # EXIT (LATEST OPEN POSITION)
     # -------------------------
     with col2:
-        if st.button("❌ EXIT POSITION", use_container_width=True):
-
+        if st.button("❌ Close Paper Position", use_container_width=True):
+    
             open_trades = [
                 t for t in load_day_trades()
                 if t["Symbol"] == stock and t["Status"] == "OPEN"
             ]
-
+    
             if not open_trades:
                 st.warning("No open position for this stock.")
             elif ltp is None:
                 st.error("❌ Live price unavailable.")
             else:
-                t = open_trades[-1]  # exit latest open trade
-                pnl = round((ltp - t["Entry"]) * t["Qty"], 2)
+                t = open_trades[-1]  # latest open trade
                 exit_time = now_ist().strftime("%H:%M:%S")
-
+    
+                # ✅ Correct PnL logic
+                if t["Side"] == "BUY":
+                    pnl = round((ltp - t["Entry"]) * t["Qty"], 2)
+                else:  # SELL (SHORT)
+                    pnl = round((t["Entry"] - ltp) * t["Qty"], 2)
+    
                 update_trade_in_csv(
                     t["Trade ID"],
                     {
@@ -2050,10 +2214,11 @@ with tabs[0]:
                         "Status": "CLOSED",
                     }
                 )
-
-                st.success(f"❌ {stock} CLOSED | PnL ₹{pnl}")
-
-                # 🔁 Reload + recompute risk
+    
+                st.success(
+                    f"❌ Paper position closed | {stock} ({t['Side']}) | PnL ₹{pnl}"
+                )
+    
                 st.session_state.history = load_day_trades()
                 refresh_risk_from_history()
                 st.rerun()
@@ -2069,21 +2234,27 @@ with tabs[0]:
     closed_trades = [t for t in trades_today if t["Status"] == "CLOSED"]
     
     # =====================================================
-    # NET LIVE PnL (ALL OPEN TRADES) — PER SYMBOL (FIXED)
+    # NET LIVE PnL (ALL OPEN TRADES) — BUY & SELL SAFE
     # =====================================================
     net_live_pnl = 0.0
     
     for t in open_trades:
         trade_price, _ = get_live_price_fast(t["Symbol"])
-        if trade_price is not None and isinstance(t.get("Entry"), (int, float)):
+    
+        if trade_price is None or not isinstance(t.get("Entry"), (int, float)):
+            continue
+    
+        if t["Side"] == "BUY":
             net_live_pnl += (trade_price - t["Entry"]) * t["Qty"]
+        else:  # SELL (SHORT)
+            net_live_pnl += (t["Entry"] - trade_price) * t["Qty"]
     
     color = "green" if net_live_pnl > 0 else "red" if net_live_pnl < 0 else "gray"
     
     st.markdown(
         f"""
         <h3 style="color:{color}; margin-bottom:0;">
-            📈 Net Live PnL (Open Trades): ₹{net_live_pnl:.2f}
+            📈 Net Live PnL (Open Paper Trades): ₹{net_live_pnl:.2f}
         </h3>
         """,
         unsafe_allow_html=True
@@ -2094,7 +2265,7 @@ with tabs[0]:
     # OPEN TRADES
     # =========================
     if open_trades:
-        st.markdown("### 🟢 Open Trades")
+        st.markdown("### 🟢 Open Paper Trades")
     
         h1, h2, h3, h4, h5, h6, h7, h8, h9 = st.columns(
             [1.2, 0.6, 0.6, 1, 1, 1, 1, 0.9, 1.2]
@@ -2114,7 +2285,10 @@ with tabs[0]:
     
             live_pnl = None
             if trade_price is not None:
-                live_pnl = round((trade_price - t["Entry"]) * t["Qty"], 2)
+                if t["Side"] == "BUY":
+                    live_pnl = round((trade_price - t["Entry"]) * t["Qty"], 2)
+                else:
+                    live_pnl = round((t["Entry"] - trade_price) * t["Qty"], 2)
     
             buy_price = t["Entry"] if t["Side"] == "BUY" else "—"
             sell_price = t["Entry"] if t["Side"] == "SELL" else "—"
@@ -2170,7 +2344,7 @@ with tabs[0]:
     # CLOSED TRADES
     # =========================
     if closed_trades:
-        st.markdown("### 🔵 Closed Trades")
+        st.markdown("### 🔵 Closed Paper Trades")
     
         rows = []
         for t in closed_trades:
@@ -2192,6 +2366,12 @@ with tabs[0]:
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
     else:
         st.info("No CLOSED trades yet today.")
+        
+    st.caption(
+        "ℹ️ All trades shown above are **simulated paper trades only**. "
+        "No real orders are placed, no broker integration exists, "
+        "and this section is provided strictly for **learning and discipline practice**."
+    )
 
     # =====================================================
     # 📊 TRADE ANALYTICS DASHBOARD

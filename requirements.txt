@@ -7,3 +7,5 @@ plotly
 pytz
 streamlit-autorefresh
 joblib
+fastapi
+uvicorn
