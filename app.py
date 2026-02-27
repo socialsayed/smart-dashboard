@@ -2141,13 +2141,27 @@ with tabs[0]:
     
     # =====================================================
     # 🤖 ML ADVISORY (SECONDARY – HISTORICAL CONTEXT ONLY)
+    # STEP 3D – ML EXPLANATION GATING
     # =====================================================
     
+    # ---- Subscription context ----
+    from config import (
+        DEFAULT_USER_TIER,
+        get_tier_config,
+    )
+    
+    user_tier = st.session_state.get("user_tier", DEFAULT_USER_TIER)
+    tier_cfg = get_tier_config(user_tier)
+    
+    CAN_VIEW_ML_EXPLANATION = tier_cfg.get("show_ml_explanation", False)
+    
     ml_score = st.session_state.get("ml_score")
+    ml_reasons = st.session_state.get("ml_reasons", [])
     
     if ml_score is not None:
         ml_pct = int(ml_score * 100)
     
+        # --- ALWAYS visible to ALL users ---
         st.info(
             f"🤖 **ML Setup Quality (Educational Context Only)**\n\n"
             f"- Historical similarity score: **{ml_pct}/100**\n"
@@ -2156,6 +2170,18 @@ with tabs[0]:
             f"ℹ️ It does not permit, block, or suggest trades.\n"
             f"✔ Final eligibility is always determined by rule-based validation."
         )
+    
+        # --- EXPLANATION: gated ---
+        if CAN_VIEW_ML_EXPLANATION and ml_reasons:
+            with st.expander("🔍 ML Factor Breakdown (Educational)"):
+                for r in ml_reasons:
+                    st.write(f"- {r}")
+    
+        elif not CAN_VIEW_ML_EXPLANATION:
+            st.caption(
+                "ℹ️ ML factor-level explanations are available for advanced users. "
+                "They provide historical context only — not predictions or advice."
+            )
     
     # =====================================================
     # 🧪 PAPER TRADE SIMULATOR (EXECUTION CONTROLS)
@@ -2427,40 +2453,83 @@ with tabs[0]:
 
     # =====================================================
     # 📊 TRADE ANALYTICS DASHBOARD
+    # STEP 3E – HISTORICAL DEPTH GATING
     # =====================================================
-    # Always define df_trades safely
-    df_trades = pd.DataFrame()
-
+    
+    from config import (
+        DEFAULT_USER_TIER,
+        get_tier_config,
+    )
+    
+    user_tier = st.session_state.get("user_tier", DEFAULT_USER_TIER)
+    tier_cfg = get_tier_config(user_tier)
+    history_days = tier_cfg.get("history_days")
+    
     st.subheader("📊 Trade Analytics")
-
-    closed_trades = [
+    
+    # ---- Load ALL closed trades safely ----
+    all_closed_trades = [
         t for t in st.session_state.history
         if t.get("Status") == "CLOSED" and isinstance(t.get("PnL"), (int, float))
     ]
-
-    if closed_trades:
-        df_trades = pd.DataFrame(closed_trades)
-
+    
+    # ---- Apply history depth gating ----
+    if history_days is not None:
+        cutoff_date = now_ist().date() - pd.Timedelta(days=history_days - 1)
+    
+        filtered_trades = []
+        for t in all_closed_trades:
+            try:
+                trade_date = pd.to_datetime(t.get("Date")).date()
+                if trade_date >= cutoff_date:
+                    filtered_trades.append(t)
+            except Exception:
+                continue
+    else:
+        # ELITE → unlimited
+        filtered_trades = all_closed_trades
+    
+    # ---- User-facing info (clean & non-pushy) ----
+    if history_days is not None and history_days > 1:
+        st.caption(
+            f"ℹ️ Showing last **{history_days} days** of trade history "
+            f"(based on your access level)."
+        )
+    elif history_days == 1:
+        st.caption(
+            "ℹ️ Showing **today’s trades only**. "
+            "Historical analytics are available for advanced users."
+        )
+    
+    # ---- Analytics computation ----
+    if filtered_trades:
+        df_trades = pd.DataFrame(filtered_trades)
+    
         total_trades = len(df_trades)
         wins = df_trades[df_trades["PnL"] > 0]
         losses = df_trades[df_trades["PnL"] < 0]
-
-        win_rate = (len(wins) / total_trades) * 100
+    
+        win_rate = (len(wins) / total_trades) * 100 if total_trades else 0.0
         avg_win = wins["PnL"].mean() if not wins.empty else 0.0
         avg_loss = losses["PnL"].mean() if not losses.empty else 0.0
-
-        expectancy = (win_rate / 100) * avg_win + (1 - win_rate / 100) * avg_loss
-
+    
+        expectancy = (
+            (win_rate / 100) * avg_win +
+            (1 - win_rate / 100) * avg_loss
+        )
+    
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Total Trades", total_trades)
         c2.metric("Win Rate %", f"{win_rate:.1f}%")
         c3.metric("Avg Win (₹)", f"{avg_win:.2f}")
         c4.metric("Avg Loss (₹)", f"{avg_loss:.2f}")
-
+    
         st.metric("📐 Expectancy (₹ / trade)", f"{expectancy:.2f}")
-
+    
     else:
-        st.info("ℹ️ No CLOSED trades yet — analytics will appear after exits.")
+        st.info(
+            "ℹ️ No closed trades available in the current history window."
+        )
 
     # =====================================================
     # 📈 STRATEGY-WISE PERFORMANCE
