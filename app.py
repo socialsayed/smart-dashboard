@@ -994,12 +994,18 @@ with tabs[0]:
             st.sidebar.warning("Please select a stock")
             st.stop()
     
-    # 🔒 Persist & detect change
+    # 🔒 Persist & detect stock change (FULL RESET – CRITICAL)
     if st.session_state.get("last_stock") != stock:
         st.session_state.last_stock = stock
+    
+        # --- Price & chart context ---
         st.session_state.last_intraday_df = None
         st.session_state.last_price_metric = None
-        st.session_state.scanner_ready = True   # ✅ KEY LINE
+        st.session_state.prev_close = None
+    
+        # --- Scanner context ---
+        st.session_state.scanner_ready = True
+        st.session_state.scanner_results = None
     
     st.session_state.stock = stock
     
