@@ -2463,7 +2463,7 @@ with tabs[0]:
 
     # =====================================================
     # 📊 TRADE ANALYTICS DASHBOARD
-    # STEP 3E – HISTORICAL DEPTH GATING
+    # STEP 3E – HISTORICAL DEPTH GATING (CLOUD / MOBILE SAFE)
     # =====================================================
     
     from config.subscription import (
@@ -2499,7 +2499,13 @@ with tabs[0]:
         # ELITE → unlimited
         filtered_trades = all_closed_trades
     
-    # ---- User-facing info (clean & non-pushy) ----
+    # ---- ALWAYS define df_trades (CRITICAL FIX) ----
+    if filtered_trades:
+        df_trades = pd.DataFrame(filtered_trades)
+    else:
+        df_trades = pd.DataFrame(columns=["PnL", "Strategy", "Entry Time"])
+    
+    # ---- User-facing context (clean & non-pushy) ----
     if history_days is not None and history_days > 1:
         st.caption(
             f"ℹ️ Showing last **{history_days} days** of trade history "
@@ -2512,9 +2518,7 @@ with tabs[0]:
         )
     
     # ---- Analytics computation ----
-    if filtered_trades:
-        df_trades = pd.DataFrame(filtered_trades)
-    
+    if not df_trades.empty:
         total_trades = len(df_trades)
         wins = df_trades[df_trades["PnL"] > 0]
         losses = df_trades[df_trades["PnL"] < 0]
@@ -2535,7 +2539,6 @@ with tabs[0]:
         c4.metric("Avg Loss (₹)", f"{avg_loss:.2f}")
     
         st.metric("📐 Expectancy (₹ / trade)", f"{expectancy:.2f}")
-    
     else:
         st.info(
             "ℹ️ No closed trades available in the current history window."
