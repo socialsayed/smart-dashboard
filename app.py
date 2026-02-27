@@ -1228,15 +1228,15 @@ with tabs[0]:
     # =====================================================
     # 🔧 SCANNER SYMBOL SELECTION (FIXED – READ ONLY)
     # =====================================================
-    
-    
-        scan_symbols = [st.session_state.stock]
 
-        # a gentle reminder that manual scans are experimental
-        st.sidebar.caption(
-            "ℹ️ Manual symbol scanning is enabled, but results may not be "
-            "accurate for names not in the index map."
-        )
+    # Single source of truth for scanner symbols
+    scan_symbols = [st.session_state.stock]
+
+    # Gentle reminder for manual scans
+    st.sidebar.caption(
+        "ℹ️ Manual symbol scanning is enabled, but results may not be "
+        "accurate for names not in the index map."
+    )
 
     # =====================================================
     # MARKET STATUS
