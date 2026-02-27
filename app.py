@@ -28,7 +28,10 @@ def validate_nse_symbol(symbol: str) -> bool:
 # =====================================================
 # SAFE REFRESH DEFAULT
 # =====================================================
-LIVE_REFRESH = config.LIVE_REFRESH
+from config.subscription import LIVE_REFRESH, DEFAULT_USER_TIER
+
+user_tier = st.session_state.get("user_tier", DEFAULT_USER_TIER)
+LIVE_REFRESH = LIVE_REFRESH.get(user_tier, LIVE_REFRESH["FREE"])
 
 # --- Market & Price ---
 from services.market_time import now_ist, market_status
@@ -2145,7 +2148,7 @@ with tabs[0]:
     # =====================================================
     
     # ---- Subscription context ----
-    from config import (
+    from config.subscription import (
         DEFAULT_USER_TIER,
         get_tier_config,
     )
@@ -2456,7 +2459,7 @@ with tabs[0]:
     # STEP 3E – HISTORICAL DEPTH GATING
     # =====================================================
     
-    from config import (
+    from config.subscription import (
         DEFAULT_USER_TIER,
         get_tier_config,
     )

@@ -1,14 +1,22 @@
 # =====================================================
-# SUBSCRIPTION CONFIGURATION
-# STEP 3E – HISTORICAL DEPTH GATING
+# SUBSCRIPTION & ACCESS CONFIGURATION
 # =====================================================
 
 DEFAULT_USER_TIER = "FREE"
 
+# 🔁 Refresh speed control (seconds)
+# Used for STEP 3C – refresh speed gating
+LIVE_REFRESH = {
+    "FREE": 20,
+    "BASIC": 15,
+    "PRO": 7,
+    "ELITE": 5,
+}
+
 TIERS = {
     "FREE": {
         "label": "Free",
-        "history_days": 1,          # today only
+        "history_days": 1,
         "show_ml_explanation": False,
     },
     "BASIC": {
@@ -23,19 +31,13 @@ TIERS = {
     },
     "ELITE": {
         "label": "Elite",
-        "history_days": None,       # unlimited
+        "history_days": None,
         "show_ml_explanation": True,
     },
 }
 
 
 def get_tier_config(tier: str) -> dict:
-    """
-    Safe tier resolver.
-    Always returns a valid config.
-    """
     if not tier:
-        return TIERS[DEFAULT_USER_TIER]
-
-    tier = tier.upper()
-    return TIERS.get(tier, TIERS[DEFAULT_USER_TIER])
+        tier = DEFAULT_USER_TIER
+    return TIERS.get(tier.upper(), TIERS[DEFAULT_USER_TIER])
