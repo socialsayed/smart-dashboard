@@ -873,12 +873,57 @@ with tabs[0]:
     # =====================================================
     # HEADER
     # =====================================================
-    st.title("📊 Smart Market Analytics Dashboard")
     
-    st.caption(
-        "A professional intraday **market analytics & decision-support platform**. "
-        "Provides rule-based evaluation and educational insights — **not investment advice**."
-    )
+    # ---- Access Level (READ-ONLY, SEBI-SAFE) ----
+    from config.subscription import DEFAULT_USER_TIER, get_tier_config
+    
+    user_tier = st.session_state.get("user_tier", DEFAULT_USER_TIER)
+    tier_cfg = get_tier_config(user_tier)
+    
+    ACCESS_LABEL = user_tier.upper()
+    
+    BADGE_COLOR = {
+        "FREE": "#546e7a",
+        "BASIC": "#455a64",
+        "PRO": "#2e7d32",
+        "ELITE": "#6a1b9a",
+    }.get(ACCESS_LABEL, "#455a64")
+    
+    # ---- Title + Access Badge ----
+    c1, c2 = st.columns([0.75, 0.25])
+    
+    with c1:
+        st.title("📊 Smart Market Analytics Dashboard")
+        st.caption(
+            "A professional intraday **market analytics & decision-support platform**. "
+            "Provides rule-based evaluation and educational insights — **not investment advice**."
+        )
+    
+    with c2:
+        st.markdown(
+            f"""
+            <div style="text-align:right; padding-top:8px;">
+                <span style="
+                    display:inline-block;
+                    padding:6px 14px;
+                    border-radius:18px;
+                    font-size:0.9rem;
+                    font-weight:600;
+                    color:white;
+                    background:{BADGE_COLOR};
+                ">
+                    🪪 Access Level: {ACCESS_LABEL}
+                </span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    
+    if ACCESS_LABEL != "ELITE":
+        st.caption(
+            "ℹ️ Some advanced analytics are available at higher access levels. "
+            "All outputs shown are educational and non-advisory."
+        )
 
     # =====================================================
     # 🚨 IMPORTANT REGULATORY & USAGE DISCLOSURE (PROMINENT)
@@ -1402,6 +1447,12 @@ with tabs[0]:
                 f"🔄 Auto-refresh every **{refresh_interval}s** "
                 f"({'Market Open' if open_now else 'Market Closed'})"
             )
+            
+            if not tier_cfg.get("fast_refresh"):
+                st.caption(
+                    "ℹ️ Faster refresh speeds are available for advanced access levels. "
+                    "Displayed data remains non-advisory."
+                )
     
         with c2:
             st.caption(
@@ -2513,8 +2564,8 @@ with tabs[0]:
         )
     elif history_days == 1:
         st.caption(
-            "ℹ️ Showing **today’s trades only**. "
-            "Historical analytics are available for advanced users."
+            "ℹ️ Showing **today’s trades only** based on current access level. "
+            "Extended historical analytics provide educational review context."
         )
     
     # ---- Analytics computation ----
