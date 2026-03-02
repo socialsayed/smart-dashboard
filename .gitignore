@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Streamlit
+.streamlit/
+
+# OS
+.DS_Store
+
+
+# NSE cookies (local only)
+data/nse_cookies.json
+
+# Paper trade runtime data
+data/paper_trades/
+data/nse_symbols.csv
